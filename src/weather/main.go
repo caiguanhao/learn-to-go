@@ -69,7 +69,7 @@ func getTerminalSize() (width, height int, err error) {
 }
 
 func printHorizontalLine(width int) {
-	fmt.Println(strings.Replace(fmt.Sprintf("%*s", width, " "), " ", "-", -1))
+	fmt.Println(strings.Repeat("-", width))
 }
 
 func toCelsius(degree float64) float64 {
@@ -160,6 +160,7 @@ func main() {
 
 	printHorizontalLine(termWidth)
 	fmt.Printf("%*s%s\n", offset, "", title)
+	printHorizontalLine(termWidth)
 
 	listLen := len(weather.Lists)
 
@@ -187,7 +188,6 @@ func main() {
 	}
 
 	for i := 0; i < rows; i++ {
-		printHorizontalLine(termWidth)
 		for j := 0; j < len(pgfmt); j++ {
 			for k := 0; k < cols; k++ {
 				index := i*cols + k
@@ -204,5 +204,6 @@ func main() {
 			}
 			fmt.Print("\n")
 		}
+		printHorizontalLine(termWidth)
 	}
 }
