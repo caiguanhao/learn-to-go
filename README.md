@@ -9,5 +9,12 @@ Make sure you have installed `go`.
 Get weather forecast information.
 
 ```
+go get github.com/caiguanhao/learn-to-go/src/weather
+weather of Hong Kong
+```
+
+Make
+
+```
 make clean weather run
 ```
