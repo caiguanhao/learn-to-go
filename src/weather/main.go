@@ -92,6 +92,16 @@ func main() {
 	}
 	flag.Parse()
 
+	rest := flag.NArg()
+	if rest > 0 {
+		start := 0
+		if flag.Arg(0) == "of" {
+			start++
+		}
+		args := flag.Args()
+		*city = strings.Join(args[start:len(args)], " ")
+	}
+
 	termWidth, _, _ := getTerminalSize()
 
 	pgfmt := [9]string{
