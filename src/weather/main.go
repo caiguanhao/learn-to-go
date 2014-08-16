@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"syscall"
 	"time"
@@ -129,7 +130,13 @@ func main() {
 		body, err = ioutil.ReadAll(res.Body)
 		defer res.Body.Close()
 	} else {
-		body, err = ioutil.ReadFile("data/fake-weather.json")
+		dir := os.Getenv("GOPATH")
+		if dir == "" {
+			dir, _ = os.Getwd()
+		} else {
+			dir = path.Join(dir, "src", "github.com", "caiguanhao", "learn-to-go")
+		}
+		body, err = ioutil.ReadFile(path.Join(dir, "data", "fake-weather.json"))
 	}
 
 	if err != nil {
