@@ -77,18 +77,22 @@ func toCelsius(degree float64) float64 {
 
 func main() {
 	city := flag.String("city", "Daliang", "<name>     Name of the city")
+	fake := flag.Bool("fake", false, "           Use fake data")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION] [[of] city]\n\n", os.Args[0])
 		flag.VisitAll(func(flag *flag.Flag) {
-			format := "  --%s %s, default is %s\n"
-			fmt.Fprintf(os.Stderr, format, flag.Name, flag.Usage, flag.DefValue)
+			switch flag.DefValue {
+			case "true", "false":
+				fmt.Fprintf(os.Stderr, "  --%s %s\n", flag.Name, flag.Usage)
+			default:
+				fmt.Fprintf(os.Stderr, "  --%s %s, default is %s\n",
+					flag.Name, flag.Usage, flag.DefValue)
+			}
 		})
 	}
 	flag.Parse()
 
 	termWidth, _, _ := getTerminalSize()
-
-	web := true
 
 	pgfmt := [9]string{
 		"  Time      %s",
@@ -108,10 +112,10 @@ func main() {
 	var body []byte
 	var err error
 
-	if web {
+	if !*fake {
 		res, err = http.Get(fmt.Sprintf(api, *city))
 	}
-	if web && err == nil {
+	if !*fake && err == nil {
 		body, err = ioutil.ReadAll(res.Body)
 		defer res.Body.Close()
 	} else {
