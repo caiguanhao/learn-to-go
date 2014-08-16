@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"net/http"
+	"os"
 	"strings"
 	"syscall"
 	"time"
@@ -74,6 +76,16 @@ func toCelsius(degree float64) float64 {
 }
 
 func main() {
+	city := flag.String("city", "Daliang", "<name>     Name of the city")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]\n", os.Args[0])
+		flag.VisitAll(func(flag *flag.Flag) {
+			format := "  --%s %s, default is %s\n"
+			fmt.Fprintf(os.Stderr, format, flag.Name, flag.Usage, flag.DefValue)
+		})
+	}
+	flag.Parse()
+
 	termWidth, _, _ := getTerminalSize()
 
 	web := true
@@ -97,7 +109,7 @@ func main() {
 	var err error
 
 	if web {
-		res, err = http.Get(fmt.Sprintf(api, "Daliang"))
+		res, err = http.Get(fmt.Sprintf(api, *city))
 	}
 	if web && err == nil {
 		body, err = ioutil.ReadAll(res.Body)
@@ -112,6 +124,11 @@ func main() {
 
 	weather := &Weather{}
 	json.Unmarshal(body, &weather)
+
+	if weather.City.Name == "" {
+		fmt.Fprintf(os.Stderr, "No weather forecast for city %s!\n", *city)
+		os.Exit(1)
+	}
 
 	title := fmt.Sprintf("Weather Forecast for %s (%0.5f, %0.5f)",
 		weather.City.Name,
