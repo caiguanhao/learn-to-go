@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -74,6 +75,10 @@ func printHorizontalLine(width int) {
 
 func toCelsius(degree float64) float64 {
 	return degree - 273.15
+}
+
+func toTitleCase(input string) string {
+	return string(bytes.Title([]byte(input)))
 }
 
 func main() {
@@ -174,7 +179,7 @@ func main() {
 		list := weather.Lists[i]
 		data[i] = [9]string{
 			formatDate(list.Time),
-			list.Details[0].Text,
+			toTitleCase(list.Details[0].Text),
 			fmt.Sprintf("%.0f", list.Clouds),
 			fmt.Sprintf("%.0f", list.Degree),
 			fmt.Sprintf("%.0f", list.Humidity),
