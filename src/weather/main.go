@@ -70,7 +70,7 @@ func getTerminalSize() (width, height int, err error) {
 }
 
 func printHorizontalLine(width int) {
-	fmt.Println(strings.Repeat("-", width))
+	fmt.Println(strings.Repeat("–", width))
 }
 
 func toCelsius(degree float64) float64 {
