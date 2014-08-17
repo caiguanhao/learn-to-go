@@ -81,6 +81,48 @@ func toTitleCase(input string) string {
 	return string(bytes.Title([]byte(input)))
 }
 
+// http://climate.umn.edu/snow_fence/components/winddirectionanddegreeswithouttable3.htm
+func toWindDirection(degree float64) string {
+	degree = math.Mod(degree, 360)
+	if degree < 0 {
+		degree = 360 + degree
+	}
+	switch {
+	case degree >= 11.25 && degree < 33.75:
+		return "NNE"
+	case degree >= 33.75 && degree < 56.25:
+		return "NE"
+	case degree >= 56.25 && degree < 78.75:
+		return "ENE"
+	case degree >= 78.75 && degree < 101.25:
+		return "E"
+	case degree >= 101.25 && degree < 123.75:
+		return "ESE"
+	case degree >= 123.75 && degree < 146.25:
+		return "SE"
+	case degree >= 146.25 && degree < 168.75:
+		return "SSE"
+	case degree >= 168.75 && degree < 191.25:
+		return "S"
+	case degree >= 191.25 && degree < 213.75:
+		return "SSW"
+	case degree >= 213.75 && degree < 236.25:
+		return "SW"
+	case degree >= 236.25 && degree < 258.75:
+		return "WSW"
+	case degree >= 258.75 && degree < 281.25:
+		return "W"
+	case degree >= 281.25 && degree < 303.75:
+		return "WNW"
+	case degree >= 303.75 && degree < 326.25:
+		return "NW"
+	case degree >= 326.25 && degree < 348.75:
+		return "NNW"
+	default:
+		return "N"
+	}
+}
+
 func main() {
 	city := flag.String("city", "Daliang", "<name>     Name of the city")
 	fake := flag.Bool("fake", false, "           Use fake data")
@@ -119,7 +161,7 @@ func main() {
 		"  Pressure  %s",
 		"  Rain      %s",
 		"  Speed     %s",
-		"  Temp      %s",
+		"  Temp (C)  %s",
 	}
 
 	api := "http://api.openweathermap.org/data/2.5/forecast/daily?q=%s"
@@ -180,12 +222,12 @@ func main() {
 		data[i] = [9]string{
 			formatDate(list.Time),
 			toTitleCase(list.Details[0].Text),
-			fmt.Sprintf("%.0f", list.Clouds),
-			fmt.Sprintf("%.0f", list.Degree),
-			fmt.Sprintf("%.0f", list.Humidity),
-			fmt.Sprintf("%.2f", list.Pressure),
-			fmt.Sprintf("%.0f", list.Rain),
-			fmt.Sprintf("%.2f", list.Speed),
+			fmt.Sprintf("%.0f%%", list.Clouds),
+			fmt.Sprintf("%.0f (%s)", list.Degree, toWindDirection(list.Degree)),
+			fmt.Sprintf("%.0f%%", list.Humidity),
+			fmt.Sprintf("%.2f hPa", list.Pressure),
+			fmt.Sprintf("%.0f mm", list.Rain),
+			fmt.Sprintf("%.2f mps", list.Speed),
 			fmt.Sprintf("%.2f Hi / %.2f Lo",
 				toCelsius(list.Temperature.Max),
 				toCelsius(list.Temperature.Min)),
