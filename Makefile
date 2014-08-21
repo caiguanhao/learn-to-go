@@ -1,8 +1,5 @@
-run: weather
-	./weather
+github-notify:
+	go run src/github-notify/notify.go --token $(ACCESSTOKEN)
 
 weather:
-	go build -o weather src/weather/main.go
-
-clean:
-	rm -f weather
+	go run src/weather/main.go
