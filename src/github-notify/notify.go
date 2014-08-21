@@ -15,6 +15,16 @@ import (
 	"time"
 )
 
+var (
+	GET                         = "GET"
+	AUTHORIZATION               = "Authorization"
+	NO_NOTIFICATIONS_YET        = "No notifications yet."
+	NO_NEW_NOTIFICATIONS_YET    = "No new notifications yet."
+	GITHUB_NOTIFY_CHECKSUM_FILE = ".github.notify.checksum"
+	GITHUB_NOTIFICATIONS_API    = "https://api.github.com/notifications" +
+		"?all=true&participating=true"
+)
+
 type Subject struct {
 	Type             string `json:"type"`
 	Title            string `json:"title"`
@@ -60,13 +70,13 @@ func get(url string) ([]byte, error) {
 	var req *http.Request
 	var res *http.Response
 
-	req, err = http.NewRequest("GET", url, nil)
+	req, err = http.NewRequest(GET, url, nil)
 
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("token %s", accessToken))
+	req.Header.Add(AUTHORIZATION, fmt.Sprintf("token %s", accessToken))
 	res, err = client.Do(req)
 
 	if err != nil {
@@ -74,12 +84,10 @@ func get(url string) ([]byte, error) {
 	}
 
 	if res.StatusCode != 200 {
-		if lastTimeMsg == 10 {
-			fmt.Print(".")
-		} else {
-			fmt.Println(res.Status)
+		if lastStatusString != res.Status {
+			lastStatusString = res.Status
 		}
-		lastTimeMsg = 10
+		log(&lastStatusString)
 		return nil, err
 	}
 
@@ -87,13 +95,29 @@ func get(url string) ([]byte, error) {
 	return ioutil.ReadAll(res.Body)
 }
 
-var lastTimeMsg = -1
+var lastTimeMsg *string
+var lastStatusString string
+var lastTimeDot bool
+
+func log(message *string) {
+	if lastTimeMsg == message {
+		fmt.Print(".")
+		lastTimeDot = true
+	} else {
+		if lastTimeDot {
+			fmt.Println()
+		}
+		fmt.Println(*message)
+		lastTimeDot = false
+	}
+	lastTimeMsg = message
+}
 
 func check() {
 	var body []byte
 	var err error
 
-	body, err = get("https://api.github.com/notifications?all=true&participating=true")
+	body, err = get(GITHUB_NOTIFICATIONS_API)
 
 	if body == nil || err != nil {
 		return
@@ -103,30 +127,20 @@ func check() {
 	json.Unmarshal(body, &notifications)
 
 	if len(notifications) == 0 {
-		if lastTimeMsg == 1 {
-			fmt.Print(".")
-		} else {
-			fmt.Println("No notifications yet.")
-		}
-		lastTimeMsg = 1
+		log(&NO_NOTIFICATIONS_YET)
 		return
 	}
 
 	check := []byte(fmt.Sprintf("%v", notifications))
 	checksum := []byte(fmt.Sprintf("%x", sha1.Sum(check)))
 	currentUser, _ := user.Current()
-	checksumFile := path.Join(currentUser.HomeDir, ".github.notify.checksum")
+	checksumFile := path.Join(currentUser.HomeDir, GITHUB_NOTIFY_CHECKSUM_FILE)
 
 	content, err := ioutil.ReadFile(checksumFile)
 
 	if err == nil {
 		if bytes.Equal(checksum, content) {
-			if lastTimeMsg == 2 {
-				fmt.Print(".")
-			} else {
-				fmt.Println("No new notifications yet.")
-			}
-			lastTimeMsg = 2
+			log(&NO_NEW_NOTIFICATIONS_YET)
 			return
 		}
 	}
@@ -144,6 +158,9 @@ func check() {
 	json.Unmarshal(body, &commit)
 
 	exec.Command("open", commit.HtmlUrl).Run()
+
+	openMsg := fmt.Sprintf("Opened %s", commit.HtmlUrl)
+	log(&openMsg)
 }
 
 func main() {
