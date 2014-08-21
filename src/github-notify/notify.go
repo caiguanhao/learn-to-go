@@ -69,6 +69,10 @@ func get(url string) ([]byte, error) {
 	req.Header.Add("Authorization", fmt.Sprintf("token %s", accessToken))
 	res, err = client.Do(req)
 
+	if err != nil {
+		return nil, err
+	}
+
 	if res.StatusCode != 200 {
 		if lastTimeMsg == 10 {
 			fmt.Print(".")
@@ -76,10 +80,6 @@ func get(url string) ([]byte, error) {
 			fmt.Println(res.Status)
 		}
 		lastTimeMsg = 10
-		return nil, err
-	}
-
-	if err != nil {
 		return nil, err
 	}
 
