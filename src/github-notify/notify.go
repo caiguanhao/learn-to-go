@@ -48,15 +48,17 @@ type Commit struct {
 var accessToken string
 var saveToken bool
 var removeToken bool
+var installOnMac bool
 var userHomeDir string
 
 func getOpts() {
 	currentUser, _ := user.Current()
 	userHomeDir = currentUser.HomeDir
 
-	flag.StringVar(&accessToken, "token", "", "<token>     GitHub access token")
-	flag.BoolVar(&saveToken, "save", false, "             Save token to file")
-	flag.BoolVar(&removeToken, "remove", false, "           Remove token file and exit")
+	flag.StringVar(&accessToken, "token", "", "<token>  GitHub access token")
+	flag.BoolVar(&saveToken, "save", false, "          Save token to file")
+	flag.BoolVar(&removeToken, "remove", false, "        Remove token file and exit")
+	flag.BoolVar(&installOnMac, "install", false, "       Install app on Mac OS X")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]\n\n", path.Base(os.Args[0]))
 		flag.VisitAll(func(flag *flag.Flag) {
@@ -72,6 +74,11 @@ func getOpts() {
 	flag.Parse()
 
 	tokenFile := path.Join(userHomeDir, GITHUB_NOTIFY_TOKEN_FILE)
+
+	if installOnMac {
+		installAppOnMac()
+		os.Exit(0)
+	}
 
 	if removeToken {
 		err := os.Remove(tokenFile)
@@ -106,6 +113,16 @@ func getOpts() {
 		fmt.Fprintf(os.Stderr, "Token has been saved to %s\n", tokenFile)
 		fmt.Fprintf(os.Stderr, "You can run `%s` without --token next time!\n", path.Base(os.Args[0]))
 	}
+}
+
+func installAppOnMac() {
+	file, _ := ioutil.TempFile("", "")
+	filename := file.Name()
+	file.WriteString(INSTALL_SHELL_SCRIPT)
+	file.Chmod(500)
+	file.Close()
+	fmt.Printf("Running shell script %s\n", filename)
+	exec.Command(filename).Run()
 }
 
 func get(url string) ([]byte, error) {
