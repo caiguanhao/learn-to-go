@@ -42,7 +42,7 @@ FILE
 mkdir -p MacOS
 cat > "MacOS/GitHubNotify" <<'EOF'
 #!/bin/bash
-osascript -e 'tell application "Terminal" to do script "github-notify"'
+open -a Terminal "$(which github-notify)"
 
 EOF
 chmod +x "MacOS/GitHubNotify"
