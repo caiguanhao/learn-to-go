@@ -13,6 +13,15 @@ go get -u github.com/caiguanhao/learn-to-go/src/weather
 weather of Hong Kong
 ```
 
+## lyrics
+
+Get lyrics of current playing song for your iTunes.
+
+```
+go get -u github.com/caiguanhao/learn-to-go/src/lyrics
+lyrics
+```
+
 ## github-notify
 
 Query for all new GitHub notifications about you and open related web page
