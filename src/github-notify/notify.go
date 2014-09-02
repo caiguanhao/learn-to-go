@@ -21,6 +21,7 @@ var (
 	NO_NOTIFICATIONS_YET        = "No notifications yet."
 	NO_NEW_NOTIFICATIONS_YET    = "No new notifications yet."
 	GITHUB_NOTIFY_CHECKSUM_FILE = ".github.notify.checksum"
+	GITHUB_NOTIFY_TOKEN_FILE    = ".github.notify.token"
 	GITHUB_NOTIFICATIONS_API    = "https://api.github.com/notifications" +
 		"?all=true&participating=true"
 )
@@ -45,9 +46,17 @@ type Commit struct {
 }
 
 var accessToken string
+var saveToken bool
+var removeToken bool
+var userHomeDir string
 
 func getOpts() {
+	currentUser, _ := user.Current()
+	userHomeDir = currentUser.HomeDir
+
 	flag.StringVar(&accessToken, "token", "", "<token>     GitHub access token")
+	flag.BoolVar(&saveToken, "save", false, "             Save token to file")
+	flag.BoolVar(&removeToken, "remove", false, "           Remove token file and exit")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]\n\n", path.Base(os.Args[0]))
 		flag.VisitAll(func(flag *flag.Flag) {
@@ -61,6 +70,42 @@ func getOpts() {
 		})
 	}
 	flag.Parse()
+
+	tokenFile := path.Join(userHomeDir, GITHUB_NOTIFY_TOKEN_FILE)
+
+	if removeToken {
+		err := os.Remove(tokenFile)
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "Removed token file %s\n", tokenFile)
+		} else {
+			fmt.Fprintln(os.Stderr, err)
+		}
+		os.Exit(0)
+	}
+
+	if accessToken == "" {
+		content, err := ioutil.ReadFile(tokenFile)
+		if err == nil {
+			accessToken = string(content)
+		}
+		if accessToken != "" {
+			fmt.Fprintf(os.Stderr, "Read token from %s\n", tokenFile)
+		}
+	}
+
+	if accessToken == "" {
+		fmt.Fprintln(os.Stderr, "Warning: No access token specified!")
+	}
+
+	if saveToken {
+		if accessToken == "" {
+			fmt.Fprintln(os.Stderr, "Please use this option with --token!")
+			os.Exit(1)
+		}
+		ioutil.WriteFile(tokenFile, []byte(accessToken), 0600)
+		fmt.Fprintf(os.Stderr, "Token has been saved to %s\n", tokenFile)
+		fmt.Fprintf(os.Stderr, "You can run `%s` without --token next time!\n", path.Base(os.Args[0]))
+	}
 }
 
 func get(url string) ([]byte, error) {
@@ -133,8 +178,8 @@ func check() {
 
 	check := []byte(fmt.Sprintf("%v", notifications))
 	checksum := []byte(fmt.Sprintf("%x", sha1.Sum(check)))
-	currentUser, _ := user.Current()
-	checksumFile := path.Join(currentUser.HomeDir, GITHUB_NOTIFY_CHECKSUM_FILE)
+
+	checksumFile := path.Join(userHomeDir, GITHUB_NOTIFY_CHECKSUM_FILE)
 
 	content, err := ioutil.ReadFile(checksumFile)
 
