@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/caiguanhao/osext"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -117,8 +118,9 @@ func getOpts() {
 
 func installAppOnMac() {
 	file, _ := ioutil.TempFile("", "")
+	fullpath, _ := osext.Executable()
 	filename := file.Name()
-	file.WriteString(INSTALL_SHELL_SCRIPT)
+	file.WriteString(fmt.Sprintf(INSTALL_SHELL_SCRIPT, fullpath))
 	file.Chmod(500)
 	file.Close()
 	fmt.Printf("Running shell script %s\n", filename)

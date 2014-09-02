@@ -42,7 +42,7 @@ FILE
 mkdir -p MacOS
 cat > "MacOS/GitHubNotify" <<'EOF'
 #!/bin/bash
-open -a Terminal "$(which github-notify)"
+open -a Terminal "%s"
 
 EOF
 chmod +x "MacOS/GitHubNotify"
