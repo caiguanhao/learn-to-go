@@ -9,7 +9,7 @@ Make sure you have installed `go`.
 Get weather forecast information.
 
 ```
-go get github.com/caiguanhao/learn-to-go/src/weather
+go get -u github.com/caiguanhao/learn-to-go/src/weather
 weather of Hong Kong
 ```
 
@@ -20,11 +20,17 @@ in your browser.
 
 You need to generate new token (in Settings > Applications), and select scopes:
 "repo", "public_repo", "notifications" (other scopes are not necessary).
-Copy the token as use it for option `--token`.
+Copy the token as use it for option `--token`. To save the token, use `--save`.
 
 ```
-go get github.com/caiguanhao/learn-to-go/src/github-notify
-github-notify --token 0e136cf2a819ac49c78c64edc416fe8f269f513c
+go get -u github.com/caiguanhao/learn-to-go/src/github-notify
+github-notify --token <YOUR-TOKEN-HERE> --save
+```
+
+If you are on Mac OS X, you can install the app to your Dock:
+
+```
+github-notify --token <YOUR-TOKEN-HERE> --save --install
 ```
 
 ## Screenshots

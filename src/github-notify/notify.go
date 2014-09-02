@@ -50,12 +50,12 @@ var accessToken string
 var saveToken bool
 var removeToken bool
 var installOnMac bool
+
 var userHomeDir string
+var tokenFile string
+var checksumFile string
 
 func getOpts() {
-	currentUser, _ := user.Current()
-	userHomeDir = currentUser.HomeDir
-
 	flag.StringVar(&accessToken, "token", "", "<token>  GitHub access token")
 	flag.BoolVar(&saveToken, "save", false, "          Save token to file")
 	flag.BoolVar(&removeToken, "remove", false, "        Remove token file and exit")
@@ -74,15 +74,9 @@ func getOpts() {
 	}
 	flag.Parse()
 
-	tokenFile := path.Join(userHomeDir, GITHUB_NOTIFY_TOKEN_FILE)
-
-	if installOnMac {
-		installAppOnMac()
-		os.Exit(0)
-	}
-
 	if removeToken {
-		err := os.Remove(tokenFile)
+		err := os.Remove(checksumFile)
+		err = os.Remove(tokenFile)
 		if err == nil {
 			fmt.Fprintf(os.Stderr, "Removed token file %s\n", tokenFile)
 		} else {
@@ -113,6 +107,11 @@ func getOpts() {
 		ioutil.WriteFile(tokenFile, []byte(accessToken), 0600)
 		fmt.Fprintf(os.Stderr, "Token has been saved to %s\n", tokenFile)
 		fmt.Fprintf(os.Stderr, "You can run `%s` without --token next time!\n", path.Base(os.Args[0]))
+	}
+
+	if installOnMac {
+		installAppOnMac()
+		os.Exit(0)
 	}
 }
 
@@ -198,8 +197,6 @@ func check() {
 	check := []byte(fmt.Sprintf("%v", notifications))
 	checksum := []byte(fmt.Sprintf("%x", sha1.Sum(check)))
 
-	checksumFile := path.Join(userHomeDir, GITHUB_NOTIFY_CHECKSUM_FILE)
-
 	content, err := ioutil.ReadFile(checksumFile)
 
 	if err == nil {
@@ -225,6 +222,14 @@ func check() {
 
 	openMsg := fmt.Sprintf("Opened %s", commit.HtmlUrl)
 	log(&openMsg)
+}
+
+func init() {
+	currentUser, _ := user.Current()
+	userHomeDir = currentUser.HomeDir
+
+	tokenFile = path.Join(userHomeDir, GITHUB_NOTIFY_TOKEN_FILE)
+	checksumFile = path.Join(userHomeDir, GITHUB_NOTIFY_CHECKSUM_FILE)
 }
 
 func main() {
