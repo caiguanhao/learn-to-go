@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -18,6 +19,8 @@ type Track struct {
 
 func (track Track) Query() string {
 	name := track.Name
+	re := regexp.MustCompile("(\\[|\\().+?(\\]|\\))")
+	name = re.ReplaceAllString(name, "")
 	artist := track.Artist
 	artist = strings.Replace(artist, "!", "i", -1)
 	return name + " " + artist
