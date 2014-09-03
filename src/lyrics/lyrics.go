@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
@@ -35,16 +36,45 @@ func (track Track) Query() string {
 
 var currentTrack *Track
 
+var (
+	osascript = `
+	if application "iTunes" is running then
+		tell application "iTunes"
+			(get name of current track) & "\n" & (get artist of current track)
+		end tell
+	end if`
+)
+
+var failedOnce bool
+
 func getCurrentTrack() bool {
-	output, err := exec.Command("osascript", "-e",
-		"tell application \"iTunes\" to (get name of current track) & \"\n\""+
-			" & (get artist of current track)").Output()
+	var output bytes.Buffer
+	var failed bool
+	var out string
+
+	cmd := exec.Command("osascript")
+	cmd.Stdin = strings.NewReader(osascript)
+	cmd.Stdout = &output
+	err := cmd.Run()
 	if err != nil {
-		errorln("Couldn't get information from iTunes.")
-		errorln("Are you sure you have opened iTunes and it is playing some music?")
+		failed = true
+	} else {
+		out = strings.TrimSpace(output.String())
+		if out == "" {
+			failed = true
+		}
+	}
+
+	if failed {
+		if !failedOnce {
+			errorln("Couldn't get information from iTunes.")
+			errorln("Are you sure you have opened iTunes and it is playing some music?")
+			failedOnce = true
+		}
 		return false
 	}
-	info := strings.Split(strings.TrimSpace(string(output)), "\n")
+
+	info := strings.Split(out, "\n")
 	if currentTrack == nil || (*currentTrack).Name != info[0] || (*currentTrack).Artist != info[1] {
 		currentTrack = &Track{
 			Name:   info[0],
