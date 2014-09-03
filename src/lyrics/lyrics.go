@@ -58,6 +58,14 @@ func (track Track) Query() string {
 	return name + " " + artist
 }
 
+func (trackA Track) Equal(trackB Track) bool {
+	return trackA.Name == trackB.Name && trackA.Artist == trackB.Artist
+}
+
+func (trackA Track) NotEqual(trackB Track) bool {
+	return !trackA.Equal(trackB)
+}
+
 func getCurrentTrack() bool {
 	var output bytes.Buffer
 	var failed bool
@@ -86,13 +94,19 @@ func getCurrentTrack() bool {
 	}
 
 	info := strings.Split(out, "\n")
-	if currentTrack == nil || (*currentTrack).Name != info[0] || (*currentTrack).Artist != info[1] {
-		currentTrack = &Track{
-			Name:   info[0],
-			Artist: info[1],
-		}
+
+	newTrack := &Track{
+		Name:   info[0],
+		Artist: info[1],
+	}
+
+	if currentTrack == nil || (*currentTrack).NotEqual(*newTrack) {
+		currentTrack = newTrack
 		return true
 	}
+
+	newTrack = nil
+
 	return false
 }
 
