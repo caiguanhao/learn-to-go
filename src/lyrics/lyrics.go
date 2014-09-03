@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
 	"strings"
 	"time"
@@ -126,6 +127,14 @@ func main() {
 		}
 	}()
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for _ = range c {
+			fmt.Print(" You can press 'q' to exit. ")
+		}
+	}()
+
 	for {
 		reader, writer = io.Pipe()
 		cmd = exec.Command("less")
@@ -133,5 +142,8 @@ func main() {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Run()
+		if cmd.ProcessState.Success() {
+			break
+		}
 	}
 }
