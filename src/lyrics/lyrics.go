@@ -16,6 +16,29 @@ import (
 	"time"
 )
 
+var (
+	cmd    *exec.Cmd
+	reader *io.PipeReader
+	writer *io.PipeWriter
+
+	hasStartupQuery bool
+	startupQuery    string
+
+	noPager bool
+	pager   bool
+
+	currentTrack *Track
+
+	osascript = `
+	if application "iTunes" is running then
+		tell application "iTunes"
+			(get name of current track) & "\n" & (get artist of current track)
+		end tell
+	end if`
+
+	failedOnce bool
+)
+
 type Track struct {
 	Name   string
 	Artist string
@@ -34,19 +57,6 @@ func (track Track) Query() string {
 	artist = strings.Replace(artist, "!", "i", -1) // P!nk
 	return name + " " + artist
 }
-
-var currentTrack *Track
-
-var (
-	osascript = `
-	if application "iTunes" is running then
-		tell application "iTunes"
-			(get name of current track) & "\n" & (get artist of current track)
-		end tell
-	end if`
-)
-
-var failedOnce bool
 
 func getCurrentTrack() bool {
 	var output bytes.Buffer
@@ -140,18 +150,6 @@ func errorln(a ...interface{}) {
 		fmt.Fprintln(writer, a...)
 	}
 }
-
-var (
-	cmd    *exec.Cmd
-	reader *io.PipeReader
-	writer *io.PipeWriter
-
-	hasStartupQuery bool
-	startupQuery    string
-
-	noPager bool
-	pager   bool
-)
 
 func init() {
 	flag.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager")
