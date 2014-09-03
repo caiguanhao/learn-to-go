@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"io"
@@ -19,6 +20,9 @@ type Track struct {
 }
 
 func (track Track) Query() string {
+	if &track == nil {
+		return ""
+	}
 	name := track.Name
 	re := regexp.MustCompile("(\\[|\\().+?(\\]|\\))") // (.*) [.*]
 	name = re.ReplaceAllString(name, "")
@@ -51,13 +55,13 @@ func getCurrentTrack() bool {
 	return false
 }
 
-func findOnAZLyrics(track *Track) []string {
+func findOnAZLyrics(__query__ string) []string {
 	results := []string{}
-	if track == nil {
+	if __query__ == "" {
 		return results
 	}
 	query := url.Values{}
-	query.Add("q", (*track).Query())
+	query.Add("q", __query__)
 	URL := url.URL{
 		Scheme:   "http",
 		Host:     "search.azlyrics.com",
@@ -76,6 +80,10 @@ func findOnAZLyrics(track *Track) []string {
 		}
 	})
 	return results
+}
+
+func findOnAZLyricsByTrack(track *Track) []string {
+	return findOnAZLyrics((*track).Query())
 }
 
 func getLyrics(lyricsURL string) string {
@@ -101,21 +109,51 @@ var cmd *exec.Cmd
 var reader *io.PipeReader
 var writer *io.PipeWriter
 
+var (
+	hasStartupQuery bool
+	startupQuery    string
+)
+
+func init() {
+	flag.Parse()
+	rest := flag.NArg()
+	if rest > 0 {
+		start := 0
+		if flag.Arg(0) == "of" {
+			start++
+		}
+		args := flag.Args()
+		startupQuery = strings.Join(args[start:len(args)], " ")
+		hasStartupQuery = true
+	}
+}
+
 func main() {
 	var started bool = false
 
 	go func() {
 		for {
-			if getCurrentTrack() {
+			if hasStartupQuery || getCurrentTrack() {
 				if started {
 					cmd.Process.Kill()
 				}
 
-				results := findOnAZLyrics(currentTrack)
+				var results []string
+
+				if hasStartupQuery {
+					results = findOnAZLyrics(startupQuery)
+				} else {
+					results = findOnAZLyricsByTrack(currentTrack)
+				}
 
 				if len(results) == 0 {
-					errorln(fmt.Sprintf("No lyrics found for %s - %s.",
-						(*currentTrack).Name, (*currentTrack).Artist))
+					if hasStartupQuery {
+						errorln(fmt.Sprintf("No lyrics found for %s.",
+							startupQuery))
+					} else {
+						errorln(fmt.Sprintf("No lyrics found for %s - %s.",
+							(*currentTrack).Name, (*currentTrack).Artist))
+					}
 				} else {
 					lyrics := getLyrics(results[0])
 					fmt.Fprintln(writer, lyrics)
@@ -123,6 +161,11 @@ func main() {
 				started = true
 				writer.Close()
 			}
+
+			if hasStartupQuery {
+				break
+			}
+
 			time.Sleep(1 * time.Second)
 		}
 	}()
