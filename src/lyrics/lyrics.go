@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type Track struct {
@@ -26,23 +27,34 @@ func (track Track) Query() string {
 	return name + " " + artist
 }
 
-func getCurrentTrack() Track {
+var currentTrack *Track
+
+func getCurrentTrack() bool {
 	output, err := exec.Command("osascript", "-e",
 		"tell application \"iTunes\" to (get name of current track) & \"\n\""+
 			" & (get artist of current track)").Output()
 	if err != nil {
-		log.Fatal("iTunes: ", err)
+		errorln("Couldn't get information from iTunes.")
+		errorln("Are you sure you have opened iTunes and it is playing some music?")
+		return false
 	}
 	info := strings.Split(strings.TrimSpace(string(output)), "\n")
-	return Track{
-		Name:   info[0],
-		Artist: info[1],
+	if currentTrack == nil || (*currentTrack).Name != info[0] || (*currentTrack).Artist != info[1] {
+		currentTrack = &Track{
+			Name:   info[0],
+			Artist: info[1],
+		}
+		return true
 	}
+	return false
 }
 
-func findOnAZLyrics(track Track) []string {
+func findOnAZLyrics(track *Track) []string {
+	if track == nil {
+		return []string{}
+	}
 	query := url.Values{}
-	query.Add("q", track.Query())
+	query.Add("q", (*track).Query())
 	URL := url.URL{
 		Scheme:   "http",
 		Host:     "search.azlyrics.com",
@@ -71,32 +83,47 @@ func getLyrics(lyricsURL string) string {
 	return strings.TrimSpace(songPage.Find("#main > div[style]").Text())
 }
 
+func errorln(a ...interface{}) {
+	fmt.Fprintf(writer, "Error: ")
+	fmt.Fprintln(writer, a...)
+}
+
+var cmd *exec.Cmd
+var reader *io.PipeReader
+var writer *io.PipeWriter
+
 func main() {
-	currentTrack := getCurrentTrack()
-	results := findOnAZLyrics(currentTrack)
-
-	if len(results) == 0 {
-		fmt.Fprintf(os.Stderr, "No lyrics found for %s - %s.\n",
-			currentTrack.Name, currentTrack.Artist)
-		os.Exit(1)
-	}
-
-	reader, writer := io.Pipe()
-
-	cmd := exec.Command("less")
-	cmd.Stdin = reader
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	c := make(chan int)
+	var started bool = false
 
 	go func() {
-		defer close(c)
-		cmd.Run()
+		for {
+			if getCurrentTrack() {
+				if started {
+					cmd.Process.Kill()
+				}
+
+				results := findOnAZLyrics(currentTrack)
+
+				if len(results) == 0 {
+					errorln(fmt.Sprintf("No lyrics found for %s - %s.",
+						(*currentTrack).Name, (*currentTrack).Artist))
+				} else {
+					lyrics := getLyrics(results[0])
+					fmt.Fprintln(writer, lyrics)
+				}
+				started = true
+				writer.Close()
+			}
+			time.Sleep(1 * time.Second)
+		}
 	}()
 
-	lyrics := getLyrics(results[0])
-	fmt.Fprintln(writer, lyrics)
-
-	writer.Close()
-	<-c
+	for {
+		reader, writer = io.Pipe()
+		cmd = exec.Command("less")
+		cmd.Stdin = reader
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+	}
 }
