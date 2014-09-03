@@ -39,10 +39,17 @@ var (
 	failedOnce bool
 )
 
-type Track struct {
-	Name   string
-	Artist string
-}
+type (
+	Track struct {
+		Name   string
+		Artist string
+	}
+
+	Result struct {
+		URL       string
+		TrackName string
+	}
+)
 
 func (track Track) Query() string {
 	if &track == nil {
@@ -110,8 +117,8 @@ func getCurrentTrack() bool {
 	return false
 }
 
-func findOnAZLyrics(__query__ string) []string {
-	results := []string{}
+func findOnAZLyrics(__query__ string) []Result {
+	results := []Result{}
 	if __query__ == "" {
 		return results
 	}
@@ -131,13 +138,16 @@ func findOnAZLyrics(__query__ string) []string {
 	doc.Find("a").Each(func(i int, anchor *goquery.Selection) {
 		href, _ := anchor.Attr("href")
 		if strings.HasPrefix(href, "http://www.azlyrics.com/lyrics/") {
-			results = append(results, href)
+			results = append(results, Result{
+				URL:       href,
+				TrackName: anchor.Text(),
+			})
 		}
 	})
 	return results
 }
 
-func findOnAZLyricsByTrack(track *Track) []string {
+func findOnAZLyricsByTrack(track *Track) []Result {
 	return findOnAZLyrics((*track).Query())
 }
 
@@ -153,6 +163,44 @@ func getLyrics(lyricsURL string) string {
 	artist = strings.TrimSpace(artist)
 	lyrics := strings.TrimSpace(songPage.Find("#main > div[style]").Text())
 	return fmt.Sprintf("%s by %s\n\n%s", song, artist, lyrics)
+}
+
+func collapse(input string) string {
+	return strings.Replace(strings.ToLower(input), " ", "", -1)
+}
+
+func filterPossibleResultByTrack(results *[]Result, track *Track) string {
+	var index int = 0
+	for i, result := range *results {
+		if collapse(result.TrackName) == collapse((*track).Name) {
+			index = i
+			break
+		}
+	}
+	return (*results)[index].URL
+}
+
+func score(long, short string) float64 {
+	return 1 - float64(len(strings.Replace(long, short, "", -1)))/float64(len(long))
+}
+
+// you can test with `lyrics --no-pager Mean Pink`
+func filterPossibleResultByQuery(results *[]Result, query string) string {
+	var index int = 0
+	var max float64
+	parts := strings.Split(query, " ")
+
+	for i, result := range *results {
+		for _, part := range parts {
+			per := score(collapse(result.TrackName), collapse(part))
+			if per > max {
+				max = per
+				index = i
+			}
+		}
+	}
+
+	return (*results)[index].URL
 }
 
 func errorln(a ...interface{}) {
@@ -205,12 +253,15 @@ func trapCtrlC() {
 }
 
 func findLyrics() {
-	var results []string
+	var results []Result
+	var link string
 
 	if hasStartupQuery {
 		results = findOnAZLyrics(startupQuery)
+		link = filterPossibleResultByQuery(&results, startupQuery)
 	} else {
 		results = findOnAZLyricsByTrack(currentTrack)
+		link = filterPossibleResultByTrack(&results, currentTrack)
 	}
 
 	if len(results) == 0 {
@@ -222,7 +273,7 @@ func findLyrics() {
 				(*currentTrack).Name, (*currentTrack).Artist))
 		}
 	} else {
-		lyrics := getLyrics(results[0])
+		lyrics := getLyrics(link)
 		if writer == nil {
 			fmt.Fprintln(os.Stdout, lyrics)
 		} else {
