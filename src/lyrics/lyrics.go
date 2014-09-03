@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"io"
-	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -52,8 +51,9 @@ func getCurrentTrack() bool {
 }
 
 func findOnAZLyrics(track *Track) []string {
+	results := []string{}
 	if track == nil {
-		return []string{}
+		return results
 	}
 	query := url.Values{}
 	query.Add("q", (*track).Query())
@@ -65,9 +65,9 @@ func findOnAZLyrics(track *Track) []string {
 	}
 	doc, err := goquery.NewDocument(URL.String())
 	if err != nil {
-		log.Fatal(err)
+		errorln("Failed to get lyrics.")
+		return results
 	}
-	results := []string{}
 	doc.Find("a").Each(func(i int, anchor *goquery.Selection) {
 		href, _ := anchor.Attr("href")
 		if strings.HasPrefix(href, "http://www.azlyrics.com/lyrics/") {
@@ -80,7 +80,8 @@ func findOnAZLyrics(track *Track) []string {
 func getLyrics(lyricsURL string) string {
 	songPage, err := goquery.NewDocument(lyricsURL)
 	if err != nil {
-		log.Fatal(err)
+		errorln("Failed to get lyrics.")
+		return ""
 	}
 	song := strings.TrimSpace(songPage.Find("#main > b").First().Text())
 	artist := songPage.Find("#main > h2").First().Text()
