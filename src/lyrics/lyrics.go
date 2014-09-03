@@ -20,10 +20,12 @@ type Track struct {
 
 func (track Track) Query() string {
 	name := track.Name
-	re := regexp.MustCompile("(\\[|\\().+?(\\]|\\))")
+	re := regexp.MustCompile("(\\[|\\().+?(\\]|\\))") // (.*) [.*]
+	name = re.ReplaceAllString(name, "")
+	re = regexp.MustCompile("(?i)f[uc*]{2}k") // fuck
 	name = re.ReplaceAllString(name, "")
 	artist := track.Artist
-	artist = strings.Replace(artist, "!", "i", -1)
+	artist = strings.Replace(artist, "!", "i", -1) // P!nk
 	return name + " " + artist
 }
 
@@ -80,7 +82,12 @@ func getLyrics(lyricsURL string) string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return strings.TrimSpace(songPage.Find("#main > div[style]").Text())
+	song := strings.TrimSpace(songPage.Find("#main > b").First().Text())
+	artist := songPage.Find("#main > h2").First().Text()
+	artist = strings.Replace(artist, "LYRICS", "", -1)
+	artist = strings.TrimSpace(artist)
+	lyrics := strings.TrimSpace(songPage.Find("#main > div[style]").Text())
+	return fmt.Sprintf("%s by %s\n\n%s", song, artist, lyrics)
 }
 
 func errorln(a ...interface{}) {
