@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -131,20 +132,42 @@ func getLyrics(lyricsURL string) string {
 }
 
 func errorln(a ...interface{}) {
-	fmt.Fprintf(writer, "Error: ")
-	fmt.Fprintln(writer, a...)
+	if writer == nil {
+		fmt.Fprintf(os.Stderr, "Error: ")
+		fmt.Fprintln(os.Stderr, a...)
+	} else {
+		fmt.Fprintf(writer, "Error: ")
+		fmt.Fprintln(writer, a...)
+	}
 }
 
-var cmd *exec.Cmd
-var reader *io.PipeReader
-var writer *io.PipeWriter
-
 var (
+	cmd    *exec.Cmd
+	reader *io.PipeReader
+	writer *io.PipeWriter
+
 	hasStartupQuery bool
 	startupQuery    string
+
+	noPager bool
+	pager   bool
 )
 
 func init() {
+	flag.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION] [of [SONG NAME [by [ARTIST]]]]\n\n",
+			path.Base(os.Args[0]))
+		flag.VisitAll(func(flag *flag.Flag) {
+			switch flag.DefValue {
+			case "true", "false", "":
+				fmt.Fprintf(os.Stderr, "  --%s  %s\n", flag.Name, flag.Usage)
+			default:
+				fmt.Fprintf(os.Stderr, "  --%s  %s, default is %s\n",
+					flag.Name, flag.Usage, flag.DefValue)
+			}
+		})
+	}
 	flag.Parse()
 	rest := flag.NArg()
 	if rest > 0 {
@@ -156,50 +179,10 @@ func init() {
 		startupQuery = strings.Join(args[start:len(args)], " ")
 		hasStartupQuery = true
 	}
+	pager = !noPager
 }
 
-func main() {
-	var started bool = false
-
-	go func() {
-		for {
-			if hasStartupQuery || getCurrentTrack() {
-				if started {
-					cmd.Process.Kill()
-				}
-
-				var results []string
-
-				if hasStartupQuery {
-					results = findOnAZLyrics(startupQuery)
-				} else {
-					results = findOnAZLyricsByTrack(currentTrack)
-				}
-
-				if len(results) == 0 {
-					if hasStartupQuery {
-						errorln(fmt.Sprintf("No lyrics found for %s.",
-							startupQuery))
-					} else {
-						errorln(fmt.Sprintf("No lyrics found for %s - %s.",
-							(*currentTrack).Name, (*currentTrack).Artist))
-					}
-				} else {
-					lyrics := getLyrics(results[0])
-					fmt.Fprintln(writer, lyrics)
-				}
-				started = true
-				writer.Close()
-			}
-
-			if hasStartupQuery {
-				break
-			}
-
-			time.Sleep(1 * time.Second)
-		}
-	}()
-
+func trapCtrlC() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
@@ -207,7 +190,36 @@ func main() {
 			fmt.Print(" You can press 'q' to exit. ")
 		}
 	}()
+}
 
+func findLyrics() {
+	var results []string
+
+	if hasStartupQuery {
+		results = findOnAZLyrics(startupQuery)
+	} else {
+		results = findOnAZLyricsByTrack(currentTrack)
+	}
+
+	if len(results) == 0 {
+		if hasStartupQuery {
+			errorln(fmt.Sprintf("No lyrics found for %s.",
+				startupQuery))
+		} else {
+			errorln(fmt.Sprintf("No lyrics found for %s - %s.",
+				(*currentTrack).Name, (*currentTrack).Artist))
+		}
+	} else {
+		lyrics := getLyrics(results[0])
+		if writer == nil {
+			fmt.Fprintln(os.Stdout, lyrics)
+		} else {
+			fmt.Fprintln(writer, lyrics)
+		}
+	}
+}
+
+func runPager() {
 	for {
 		reader, writer = io.Pipe()
 		cmd = exec.Command("less")
@@ -219,4 +231,45 @@ func main() {
 			break
 		}
 	}
+}
+
+func main() {
+
+	if pager {
+
+		var started bool = false
+
+		go func() {
+			for {
+				if hasStartupQuery || getCurrentTrack() {
+					if started {
+						cmd.Process.Kill()
+					}
+
+					findLyrics()
+
+					started = true
+					writer.Close()
+				}
+
+				if hasStartupQuery {
+					break
+				}
+
+				time.Sleep(1 * time.Second)
+			}
+		}()
+
+		trapCtrlC()
+
+		runPager()
+
+	} else {
+
+		if hasStartupQuery || getCurrentTrack() {
+			findLyrics()
+		}
+
+	}
+
 }
