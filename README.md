@@ -22,6 +22,12 @@ go get -u github.com/caiguanhao/learn-to-go/src/lyrics
 lyrics
 ```
 
+Or search for lyrics:
+
+```
+lyrics --no-pager of Birthday by Katy Perry
+```
+
 ## github-notify
 
 Query for all new GitHub notifications about you and open related web page
