@@ -170,6 +170,9 @@ func collapse(input string) string {
 }
 
 func filterPossibleResultByTrack(results *[]Result, track *Track) string {
+	if len(*results) < 1 {
+		return ""
+	}
 	var index int = 0
 	for i, result := range *results {
 		if collapse(result.TrackName) == collapse((*track).Name) {
@@ -186,6 +189,9 @@ func score(long, short string) float64 {
 
 // you can test with `lyrics --no-pager Mean Pink`
 func filterPossibleResultByQuery(results *[]Result, query string) string {
+	if len(*results) < 1 {
+		return ""
+	}
 	var index int = 0
 	var max float64
 	parts := strings.Split(query, " ")
@@ -272,7 +278,7 @@ func findLyrics() {
 			errorln(fmt.Sprintf("No lyrics found for %s - %s.",
 				(*currentTrack).Name, (*currentTrack).Artist))
 		}
-	} else {
+	} else if link != "" {
 		lyrics := getLyrics(link)
 		if writer == nil {
 			fmt.Fprintln(os.Stdout, lyrics)
