@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"path"
 	"regexp"
 	"strings"
@@ -17,9 +19,10 @@ import (
 )
 
 var (
-	cmd    *exec.Cmd
-	reader *io.PipeReader
-	writer *io.PipeWriter
+	cmd            *exec.Cmd
+	reader         *io.PipeReader
+	writer         *io.PipeWriter
+	isPagerRunning bool
 
 	hasStartupQuery bool
 	startupQuery    string
@@ -37,6 +40,9 @@ var (
 	end if`
 
 	failedOnce bool
+
+	userHomeDir    string
+	lyricsCacheDir string
 )
 
 type (
@@ -51,18 +57,36 @@ type (
 	}
 )
 
-func (track Track) Query() string {
-	if &track == nil {
-		return ""
-	}
+func (track Track) Convert() *Track {
 	name := track.Name
 	re := regexp.MustCompile("(\\[|\\().+?(\\]|\\))") // (.*) [.*]
 	name = re.ReplaceAllString(name, "")
 	re = regexp.MustCompile("(?i)f[uc*]{2}k") // fuck
 	name = re.ReplaceAllString(name, "")
+
 	artist := track.Artist
 	artist = strings.Replace(artist, "!", "i", -1) // P!nk
-	return name + " " + artist
+
+	return &Track{
+		Name:   name,
+		Artist: artist,
+	}
+}
+
+func (track Track) FileName() *Track {
+	converted := track.Convert()
+	return &Track{
+		Name:   lowerCaseNoSpace(converted.Name),
+		Artist: lowerCaseNoSpace(converted.Artist),
+	}
+}
+
+func (track Track) Query() string {
+	if &track == nil {
+		return ""
+	}
+	converted := track.Convert()
+	return (*converted).Name + " " + (*converted).Artist
 }
 
 func (trackA Track) Equal(trackB Track) bool {
@@ -151,21 +175,21 @@ func findOnAZLyricsByTrack(track *Track) []Result {
 	return findOnAZLyrics((*track).Query())
 }
 
-func getLyrics(lyricsURL string) string {
+func getLyrics(lyricsURL string) []byte {
 	songPage, err := goquery.NewDocument(lyricsURL)
 	if err != nil {
 		errorln("Failed to get lyrics.")
-		return ""
+		return []byte{}
 	}
 	song := strings.TrimSpace(songPage.Find("#main > b").First().Text())
 	artist := songPage.Find("#main > h2").First().Text()
 	artist = strings.Replace(artist, "LYRICS", "", -1)
 	artist = strings.TrimSpace(artist)
 	lyrics := strings.TrimSpace(songPage.Find("#main > div[style]").Text())
-	return fmt.Sprintf("%s by %s\n\n%s", song, artist, lyrics)
+	return []byte(fmt.Sprintf("%s by %s\n\n%s", song, artist, lyrics))
 }
 
-func collapse(input string) string {
+func lowerCaseNoSpace(input string) string {
 	return strings.Replace(strings.ToLower(input), " ", "", -1)
 }
 
@@ -175,7 +199,7 @@ func filterPossibleResultByTrack(results *[]Result, track *Track) string {
 	}
 	var index int = 0
 	for i, result := range *results {
-		if collapse(result.TrackName) == collapse((*track).Name) {
+		if lowerCaseNoSpace(result.TrackName) == lowerCaseNoSpace((*track).Name) {
 			index = i
 			break
 		}
@@ -198,7 +222,7 @@ func filterPossibleResultByQuery(results *[]Result, query string) string {
 
 	for i, result := range *results {
 		for _, part := range parts {
-			per := score(collapse(result.TrackName), collapse(part))
+			per := score(lowerCaseNoSpace(result.TrackName), lowerCaseNoSpace(part))
 			if per > max {
 				max = per
 				index = i
@@ -220,6 +244,10 @@ func errorln(a ...interface{}) {
 }
 
 func init() {
+	currentUser, _ := user.Current()
+	userHomeDir = currentUser.HomeDir
+	lyricsCacheDir = path.Join(userHomeDir, ".lyrics")
+
 	flag.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION] [of [SONG NAME [by [ARTIST]]]]\n\n",
@@ -260,30 +288,51 @@ func trapCtrlC() {
 
 func findLyrics() {
 	var results []Result
-	var link string
+	var link, dir, filename string
+	var lyrics []byte
+	var err error
+	var needToGetLyrics bool = true
 
 	if hasStartupQuery {
 		results = findOnAZLyrics(startupQuery)
 		link = filterPossibleResultByQuery(&results, startupQuery)
 	} else {
-		results = findOnAZLyricsByTrack(currentTrack)
-		link = filterPossibleResultByTrack(&results, currentTrack)
+		f := (*currentTrack).FileName()
+		dir = path.Join(lyricsCacheDir, f.Artist)
+		filename = path.Join(dir, f.Name)
+		lyrics, err = ioutil.ReadFile(filename)
+		if err == nil {
+			needToGetLyrics = false
+		} else {
+			results = findOnAZLyricsByTrack(currentTrack)
+			link = filterPossibleResultByTrack(&results, currentTrack)
+		}
 	}
 
-	if len(results) == 0 {
+	if needToGetLyrics && link != "" {
+		lyrics = getLyrics(link)
+
+		if dir != "" && filename != "" {
+			err = os.MkdirAll(dir, 0755)
+			if err == nil {
+				ioutil.WriteFile(filename, lyrics, 0644)
+			}
+		}
+	}
+
+	if len(lyrics) > 0 {
+		if writer == nil {
+			fmt.Fprintf(os.Stdout, "%s\n", lyrics)
+		} else {
+			fmt.Fprintf(writer, "%s\n", lyrics)
+		}
+	} else {
 		if hasStartupQuery {
 			errorln(fmt.Sprintf("No lyrics found for %s.",
 				startupQuery))
 		} else {
 			errorln(fmt.Sprintf("No lyrics found for %s - %s.",
 				(*currentTrack).Name, (*currentTrack).Artist))
-		}
-	} else if link != "" {
-		lyrics := getLyrics(link)
-		if writer == nil {
-			fmt.Fprintln(os.Stdout, lyrics)
-		} else {
-			fmt.Fprintln(writer, lyrics)
 		}
 	}
 }
@@ -295,6 +344,7 @@ func runPager() {
 		cmd.Stdin = reader
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		isPagerRunning = true
 		cmd.Run()
 		if cmd.ProcessState.Success() {
 			break
@@ -313,6 +363,11 @@ func main() {
 				if hasStartupQuery || getCurrentTrack() {
 					if started {
 						cmd.Process.Kill()
+						isPagerRunning = false
+					}
+
+					for !isPagerRunning {
+						time.Sleep(100 * time.Millisecond)
 					}
 
 					findLyrics()
@@ -325,7 +380,7 @@ func main() {
 					break
 				}
 
-				time.Sleep(1 * time.Second)
+				time.Sleep(500 * time.Millisecond)
 			}
 		}()
 
