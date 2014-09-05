@@ -1,11 +1,11 @@
 package azlyrics
 
 import (
-	"../../structs"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"net/url"
 	"strings"
+	"structs"
 )
 
 func Search(__query__ string) []structs.Result {

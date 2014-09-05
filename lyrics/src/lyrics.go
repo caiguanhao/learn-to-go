@@ -1,8 +1,6 @@
 package main
 
 import (
-	"./providers/azlyrics"
-	"./structs"
 	"bytes"
 	"flag"
 	"fmt"
@@ -13,7 +11,9 @@ import (
 	"os/signal"
 	"os/user"
 	"path"
+	"providers/azlyrics"
 	"strings"
+	"structs"
 	"time"
 )
 
@@ -153,6 +153,7 @@ func findLyrics() {
 	var needToGetLyrics bool = true
 
 	if hasStartupQuery {
+		fmt.Println(startupQuery)
 		results = azlyrics.Search(startupQuery)
 		link = results.FilterByQuery(startupQuery)
 	} else {
