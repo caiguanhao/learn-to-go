@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"github.com/caiguanhao/learn-to-go/lyrics/src/providers/azlyrics"
+	"github.com/caiguanhao/learn-to-go/lyrics/src/structs"
 	"io"
 	"io/ioutil"
 	"os"
@@ -11,9 +13,7 @@ import (
 	"os/signal"
 	"os/user"
 	"path"
-	"providers/azlyrics"
 	"strings"
-	"structs"
 	"time"
 )
 
