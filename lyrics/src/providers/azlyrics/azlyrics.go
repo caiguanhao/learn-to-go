@@ -3,9 +3,9 @@ package azlyrics
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/caiguanhao/learn-to-go/lyrics/src/structs"
 	"net/url"
 	"strings"
-	"structs"
 )
 
 func Search(__query__ string) []structs.Result {
