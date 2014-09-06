@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"regexp"
@@ -11,7 +12,7 @@ const (
 	AZLYRICS = "http://www.azlyrics.com/lyrics/"
 )
 
-func (az AZLyrics) BuildFileName() []string {
+func (az AZLyrics) BuildFileName() ([]string, bool) {
 	az0 := func(input string) string {
 		var re *regexp.Regexp
 
@@ -52,23 +53,49 @@ func (az AZLyrics) BuildFileName() []string {
 		return input
 	}
 
+	base64enc := func(input string) string {
+		return base64.StdEncoding.EncodeToString([]byte(input))
+	}
+
+	var artist string
+	var validForAZLyrics bool = true
 	track := *az.track
-	artist := az2(track.Artist)
+	if len(track.Artist) == 0 {
+		artist = "Unknown"
+		validForAZLyrics = false
+	} else {
+		artist = az2(track.Artist)
+	}
 	u1 := az1(track.Name)
 	u2 := az2(track.Name)
+	if len(artist) == 0 {
+		artist = base64enc(track.Artist)
+		validForAZLyrics = false
+	}
+	if len(u1) == 0 || len(u2) == 0 {
+		u1 = base64enc(track.Name)
+		u2 = u1
+		validForAZLyrics = false
+	}
 	ret := []string{
 		fmt.Sprintf("%s/%s", artist, u1),
 	}
 	if u1 != u2 {
 		ret = append(ret, fmt.Sprintf("%s/%s", artist, u2))
 	}
-	return ret
+	return ret, validForAZLyrics
 }
 
 func (az AZLyrics) GetLyrics() []byte {
 	var ret []byte
 
-	for _, lyricsURL := range az.BuildFileName() {
+	lyricsURLs, validForAZLyrics := az.BuildFileName()
+
+	if !validForAZLyrics {
+		return ret
+	}
+
+	for _, lyricsURL := range lyricsURLs {
 		songPage, err := goquery.NewDocument(AZLYRICS + lyricsURL + ".html")
 		if err != nil {
 			continue
