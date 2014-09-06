@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -16,24 +15,17 @@ import (
 )
 
 var (
-	cmd            *exec.Cmd
-	reader         *io.PipeReader
-	writer         *io.PipeWriter
-	isPagerRunning bool
+	cmd    *exec.Cmd
+	reader *io.PipeReader
+	writer *io.PipeWriter
 
 	hasStartupQuery bool
 
-	noPager bool
-	pager   bool
+	noPager        bool
+	pager          bool
+	isPagerRunning bool
 
 	currentTrack *Track
-
-	osascript = `
-	if application "iTunes" is running then
-		tell application "iTunes"
-			(get name of current track) & "\n" & (get artist of current track)
-		end tell
-	end if`
 
 	failedOnce bool
 
@@ -42,24 +34,9 @@ var (
 )
 
 func getCurrentTrack() bool {
-	var output bytes.Buffer
-	var failed bool
-	var out string
+	changed, err := currentTrack.ITunes.GetCurrentTrack()
 
-	cmd := exec.Command("osascript")
-	cmd.Stdin = strings.NewReader(osascript)
-	cmd.Stdout = &output
-	err := cmd.Run()
 	if err != nil {
-		failed = true
-	} else {
-		out = strings.TrimSpace(output.String())
-		if out == "" {
-			failed = true
-		}
-	}
-
-	if failed {
 		if !failedOnce {
 			errorln("Couldn't get information from iTunes.")
 			errorln("Are you sure you have opened iTunes and it is playing some music?")
@@ -68,18 +45,7 @@ func getCurrentTrack() bool {
 		return false
 	}
 
-	info := strings.Split(out, "\n")
-
-	newTrack := NewTrack(info[0], info[1])
-
-	if currentTrack == nil || (*currentTrack).NotEqual(*newTrack) {
-		currentTrack = newTrack
-		return true
-	}
-
-	newTrack = nil
-
-	return false
+	return changed
 }
 
 func errorln(a ...interface{}) {
@@ -142,6 +108,10 @@ func init() {
 		hasStartupQuery = true
 	}
 	pager = !noPager
+
+	if currentTrack == nil {
+		currentTrack = NewTrack("", "")
+	}
 }
 
 func trapCtrlC() {
