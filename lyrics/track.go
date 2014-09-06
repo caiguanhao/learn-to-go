@@ -1,7 +1,21 @@
 package main
 
 type (
+	Provider interface {
+		GetLyrics() []byte
+	}
+
 	AZLyrics struct {
+		track *Track
+	}
+
+	AZLyricDBCNResult struct {
+		URL    string
+		Name   string
+		Artist string
+	}
+
+	AZLyricDBCN struct {
 		track *Track
 	}
 
@@ -9,16 +23,19 @@ type (
 		Name   string
 		Artist string
 		AZLyrics
+		AZLyricDBCN
 	}
 )
 
 func NewTrack(Name, Artist string) *Track {
 	newTrack := &Track{
-		Name:     Name,
-		Artist:   Artist,
-		AZLyrics: AZLyrics{},
+		Name:        Name,
+		Artist:      Artist,
+		AZLyrics:    AZLyrics{},
+		AZLyricDBCN: AZLyricDBCN{},
 	}
 	(*newTrack).AZLyrics.track = newTrack
+	(*newTrack).AZLyricDBCN.track = newTrack
 	return newTrack
 }
 

@@ -82,6 +82,7 @@ func (az AZLyrics) GetLyrics() []byte {
 			continue
 		}
 		ret = []byte(fmt.Sprintf("%s by %s\n\n%s", song, artist, lyrics))
+		return ret
 	}
 
 	return ret

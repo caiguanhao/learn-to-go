@@ -165,7 +165,15 @@ func findLyrics() {
 	filename = path.Join(lyricsCacheDir, (*currentTrack).AZLyrics.BuildFileName()[0])
 	lyrics, err = ioutil.ReadFile(filename)
 	if err != nil || len(lyrics) == 0 {
-		lyrics = (*currentTrack).AZLyrics.GetLyrics()
+		for _, provider := range []Provider{
+			(*currentTrack).AZLyrics,
+			(*currentTrack).AZLyricDBCN,
+		} {
+			lyrics = provider.GetLyrics()
+			if len(lyrics) > 0 {
+				break
+			}
+		}
 
 		if len(lyrics) > 0 && filename != "" {
 			err = os.MkdirAll(path.Dir(filename), 0755)
