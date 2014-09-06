@@ -12,8 +12,21 @@ import (
 	"strings"
 )
 
+/*
+ * AZLYRICDBCN could not search single Chinese character, so use
+ * AZLYRICDBPINYIN to search, and the two sites share the same
+ * lyrics page ID
+ */
+
 const (
-	AZLYRICDBCN = "http://cn.azlyricdb.com"
+	AZLYRICDBPINYIN = "http://pinyin.azlyricdb.com"
+	AZLYRICDBCN     = "http://cn.azlyricdb.com"
+)
+
+var (
+	ArtistAliases = map[string]string{
+		"Eason Chan": "陈奕迅",
+	}
 )
 
 func (_ AZLyricDBCN) Convert(toUTF8 bool, input string) string {
@@ -34,13 +47,21 @@ func (_ AZLyricDBCN) Convert(toUTF8 bool, input string) string {
 }
 
 func (az AZLyricDBCN) Search() *[]AZLyricDBCNResult {
+	con := func(input string) string {
+		return strings.TrimSpace(az.Convert(true, input))
+	}
+
 	results := &[]AZLyricDBCNResult{}
 
 	name := az.track.Name
 	artist := az.track.Artist
+	alias := ArtistAliases[artist]
+	if alias != "" {
+		artist = alias
+	}
 
 	query := url.Values{"st": {"1"}, "search": {az.Convert(false, name)}}
-	res, err := http.PostForm("http://cn.azlyricdb.com/search", query)
+	res, err := http.PostForm(fmt.Sprintf("%s/search", AZLYRICDBPINYIN), query)
 
 	if err != nil {
 		return results
@@ -57,8 +78,10 @@ func (az AZLyricDBCN) Search() *[]AZLyricDBCNResult {
 		if !strings.HasPrefix(href, "/lyrics/") {
 			return
 		}
-		text := strings.Split(az.Convert(true, anchor.Text()), " - ")
-		if len(text) != 2 {
+		html, _ := anchor.Html()
+		html = strings.Replace(con(html), "<br/>", " - ", -1)
+		text := strings.Split(html, " - ")
+		if len(text) < 2 {
 			return
 		}
 		*results = append(*results, AZLyricDBCNResult{
