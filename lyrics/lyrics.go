@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"github.com/caiguanhao/learn-to-go/lyrics/src/providers/azlyrics"
-	"github.com/caiguanhao/learn-to-go/lyrics/src/structs"
 	"io"
 	"io/ioutil"
 	"os"
@@ -29,7 +27,7 @@ var (
 	noPager bool
 	pager   bool
 
-	currentTrack *structs.Track
+	currentTrack *Track
 
 	osascript = `
 	if application "iTunes" is running then
@@ -43,6 +41,19 @@ var (
 	userHomeDir    string
 	lyricsCacheDir string
 )
+
+type Track struct {
+	Name   string
+	Artist string
+}
+
+func (trackA Track) Equal(trackB Track) bool {
+	return trackA.Name == trackB.Name && trackA.Artist == trackB.Artist
+}
+
+func (trackA Track) NotEqual(trackB Track) bool {
+	return !trackA.Equal(trackB)
+}
 
 func getCurrentTrack() bool {
 	var output bytes.Buffer
@@ -73,7 +84,7 @@ func getCurrentTrack() bool {
 
 	info := strings.Split(out, "\n")
 
-	newTrack := &structs.Track{
+	newTrack := &Track{
 		Name:   info[0],
 		Artist: info[1],
 	}
@@ -86,10 +97,6 @@ func getCurrentTrack() bool {
 	newTrack = nil
 
 	return false
-}
-
-func lowerCaseNoSpace(input string) string {
-	return strings.Replace(strings.ToLower(input), " ", "", -1)
 }
 
 func errorln(a ...interface{}) {
@@ -146,34 +153,22 @@ func trapCtrlC() {
 }
 
 func findLyrics() {
-	var results structs.Results
-	var link, dir, filename string
+	var filename string
 	var lyrics []byte
 	var err error
 	var needToGetLyrics bool = true
 
-	if hasStartupQuery {
-		fmt.Println(startupQuery)
-		results = azlyrics.Search(startupQuery)
-		link = results.FilterByQuery(startupQuery)
-	} else {
-		f := (*currentTrack).FileName()
-		dir = path.Join(lyricsCacheDir, f.Artist)
-		filename = path.Join(dir, f.Name)
-		lyrics, err = ioutil.ReadFile(filename)
-		if err == nil {
-			needToGetLyrics = false
-		} else {
-			results = azlyrics.SearchByTrack(currentTrack)
-			link = results.FilterByTrack(currentTrack)
-		}
+	filename = path.Join(lyricsCacheDir, BuildFileNameForTrack(*currentTrack)[0])
+	lyrics, err = ioutil.ReadFile(filename)
+	if err == nil {
+		needToGetLyrics = false
 	}
 
-	if needToGetLyrics && link != "" {
-		lyrics = azlyrics.GetLyrics(link)
+	if needToGetLyrics {
+		lyrics = GetLyricsForTrack(*currentTrack)
 
-		if dir != "" && filename != "" {
-			err = os.MkdirAll(dir, 0755)
+		if filename != "" {
+			err = os.MkdirAll(path.Dir(filename), 0755)
 			if err == nil {
 				ioutil.WriteFile(filename, lyrics, 0644)
 			}
