@@ -78,6 +78,9 @@ func (az AZLyrics) GetLyrics() []byte {
 		artist = strings.Replace(artist, "LYRICS", "", -1)
 		artist = strings.TrimSpace(artist)
 		lyrics := strings.TrimSpace(songPage.Find("#main > div[style]").Text())
+		if len(song) == 0 || len(artist) == 0 || len(lyrics) == 0 {
+			continue
+		}
 		ret = []byte(fmt.Sprintf("%s by %s\n\n%s", song, artist, lyrics))
 	}
 

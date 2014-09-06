@@ -22,7 +22,6 @@ var (
 	isPagerRunning bool
 
 	hasStartupQuery bool
-	startupQuery    string
 
 	noPager bool
 	pager   bool
@@ -100,7 +99,7 @@ func init() {
 
 	flag.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION] [of [SONG NAME [by [ARTIST]]]]\n\n",
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION] [of SONG NAME by ARTIST]\n\n",
 			path.Base(os.Args[0]))
 		flag.VisitAll(func(flag *flag.Flag) {
 			switch flag.DefValue {
@@ -116,11 +115,33 @@ func init() {
 	rest := flag.NArg()
 	if rest > 0 {
 		start := 0
-		if flag.Arg(0) == "of" {
+		if strings.EqualFold(flag.Arg(0), "of") {
 			start++
 		}
-		args := flag.Args()
-		startupQuery = strings.Join(args[start:len(args)], " ")
+		var name, artist []string
+		var byed bool
+		for _, arg := range flag.Args()[start:] {
+			arg = strings.TrimSpace(arg)
+			if len(arg) < 1 {
+				continue
+			}
+			if byed {
+				artist = append(artist, arg)
+			} else if strings.EqualFold(arg, "by") {
+				byed = true
+			} else {
+				name = append(name, arg)
+			}
+		}
+		if len(name) == 0 {
+			errorln("You need to specify the name of the song.")
+			os.Exit(1)
+		}
+		if len(artist) == 0 {
+			errorln("You need to specify the artist of the song.")
+			os.Exit(1)
+		}
+		currentTrack = NewTrack(strings.Join(name, " "), strings.Join(artist, " "))
 		hasStartupQuery = true
 	}
 	pager = !noPager
@@ -140,18 +161,13 @@ func findLyrics() {
 	var filename string
 	var lyrics []byte
 	var err error
-	var needToGetLyrics bool = true
 
 	filename = path.Join(lyricsCacheDir, (*currentTrack).AZLyrics.BuildFileName()[0])
 	lyrics, err = ioutil.ReadFile(filename)
-	if err == nil {
-		needToGetLyrics = false
-	}
-
-	if needToGetLyrics {
+	if err != nil || len(lyrics) == 0 {
 		lyrics = (*currentTrack).AZLyrics.GetLyrics()
 
-		if filename != "" {
+		if len(lyrics) > 0 && filename != "" {
 			err = os.MkdirAll(path.Dir(filename), 0755)
 			if err == nil {
 				ioutil.WriteFile(filename, lyrics, 0644)
@@ -166,13 +182,8 @@ func findLyrics() {
 			fmt.Fprintf(writer, "%s\n", lyrics)
 		}
 	} else {
-		if hasStartupQuery {
-			errorln(fmt.Sprintf("No lyrics found for %s.",
-				startupQuery))
-		} else {
-			errorln(fmt.Sprintf("No lyrics found for %s - %s.",
-				(*currentTrack).Name, (*currentTrack).Artist))
-		}
+		errorln(fmt.Sprintf("No lyrics found for %s - %s.",
+			(*currentTrack).Name, (*currentTrack).Artist))
 	}
 }
 
