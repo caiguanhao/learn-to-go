@@ -137,10 +137,6 @@ func init() {
 			errorln("You need to specify the name of the song.")
 			os.Exit(1)
 		}
-		if len(artist) == 0 {
-			errorln("You need to specify the artist of the song.")
-			os.Exit(1)
-		}
 		currentTrack = NewTrack(strings.Join(name, " "), strings.Join(artist, " "))
 		hasStartupQuery = true
 	}
@@ -162,9 +158,11 @@ func findLyrics() {
 	var lyrics []byte
 	var err error
 
-	fn, _ := (*currentTrack).AZLyrics.BuildFileName()
+	fn, _, cacheable := (*currentTrack).AZLyrics.BuildFileName()
 	filename = path.Join(lyricsCacheDir, fn[0])
-	lyrics, err = ioutil.ReadFile(filename)
+	if cacheable {
+		lyrics, err = ioutil.ReadFile(filename)
+	}
 	if err != nil || len(lyrics) == 0 {
 		for _, provider := range []Provider{
 			(*currentTrack).AZLyrics,
@@ -176,7 +174,7 @@ func findLyrics() {
 			}
 		}
 
-		if len(lyrics) > 0 && filename != "" {
+		if cacheable && len(lyrics) > 0 && filename != "" {
 			err = os.MkdirAll(path.Dir(filename), 0755)
 			if err == nil {
 				ioutil.WriteFile(filename, lyrics, 0644)

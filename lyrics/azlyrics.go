@@ -12,7 +12,7 @@ const (
 	AZLYRICS = "http://www.azlyrics.com/lyrics/"
 )
 
-func (az AZLyrics) BuildFileName() ([]string, bool) {
+func (az AZLyrics) BuildFileName() ([]string, bool, bool) {
 	az0 := func(input string) string {
 		var re *regexp.Regexp
 
@@ -57,23 +57,32 @@ func (az AZLyrics) BuildFileName() ([]string, bool) {
 		return base64.StdEncoding.EncodeToString([]byte(input))
 	}
 
-	var artist string
+	var artist, name string
 	var validForAZLyrics bool = true
+	var cacheable bool = true
 	track := *az.track
 	if len(track.Artist) == 0 {
 		artist = "Unknown"
+		cacheable = false
 		validForAZLyrics = false
 	} else {
 		artist = az2(track.Artist)
 	}
-	u1 := az1(track.Name)
-	u2 := az2(track.Name)
+	if len(track.Name) == 0 {
+		name = "Unknown"
+		cacheable = false
+		validForAZLyrics = false
+	} else {
+		name = track.Name
+	}
+	u1 := az1(name)
+	u2 := az2(name)
 	if len(artist) == 0 {
 		artist = base64enc(track.Artist)
 		validForAZLyrics = false
 	}
 	if len(u1) == 0 || len(u2) == 0 {
-		u1 = base64enc(track.Name)
+		u1 = base64enc(name)
 		u2 = u1
 		validForAZLyrics = false
 	}
@@ -83,13 +92,13 @@ func (az AZLyrics) BuildFileName() ([]string, bool) {
 	if u1 != u2 {
 		ret = append(ret, fmt.Sprintf("%s/%s", artist, u2))
 	}
-	return ret, validForAZLyrics
+	return ret, validForAZLyrics, cacheable
 }
 
 func (az AZLyrics) GetLyrics() []byte {
 	var ret []byte
 
-	lyricsURLs, validForAZLyrics := az.BuildFileName()
+	lyricsURLs, validForAZLyrics, _ := az.BuildFileName()
 
 	if !validForAZLyrics {
 		return ret
