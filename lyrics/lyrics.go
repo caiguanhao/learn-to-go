@@ -99,7 +99,7 @@ func init() {
 
 	flag.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION] [of SONG NAME by ARTIST]\n\n",
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION] [of SONG NAME [by ARTIST]]\n\n",
 			path.Base(os.Args[0]))
 		flag.VisitAll(func(flag *flag.Flag) {
 			switch flag.DefValue {
@@ -120,14 +120,15 @@ func init() {
 		}
 		var name, artist []string
 		var byed bool
-		for _, arg := range flag.Args()[start:] {
+		for index, arg := range flag.Args()[start:] {
 			arg = strings.TrimSpace(arg)
 			if len(arg) < 1 {
 				continue
 			}
 			if byed {
 				artist = append(artist, arg)
-			} else if strings.EqualFold(arg, "by") {
+			} else if strings.EqualFold(arg, "by") ||
+				(index > 0 && strings.EqualFold(arg, "of")) {
 				byed = true
 			} else {
 				name = append(name, arg)
