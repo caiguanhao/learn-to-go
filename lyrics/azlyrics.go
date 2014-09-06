@@ -11,47 +11,48 @@ const (
 	AZLYRICS = "http://www.azlyrics.com/lyrics/"
 )
 
-func az0(input string) string {
-	var re *regexp.Regexp
+func (az AZLyrics) BuildFileName() []string {
+	az0 := func(input string) string {
+		var re *regexp.Regexp
 
-	input = strings.ToLower(input)
-	input = strings.Replace(input, "p!nk", "pink", -1)
+		input = strings.ToLower(input)
+		input = strings.Replace(input, "p!nk", "pink", -1)
 
-	re = regexp.MustCompile("(?i)f[uc*]{2}k") // fuck
-	input = re.ReplaceAllString(input, "")
+		re = regexp.MustCompile("(?i)f[uc*]{2}k") // fuck
+		input = re.ReplaceAllString(input, "")
 
-	re = regexp.MustCompile("\\[.+?\\]") // [.*]
-	input = re.ReplaceAllString(input, "")
+		re = regexp.MustCompile("\\[.+?\\]") // [.*]
+		input = re.ReplaceAllString(input, "")
 
-	return input
-}
+		return input
+	}
 
-func az1(input string) string {
-	var re *regexp.Regexp
+	az1 := func(input string) string {
+		var re *regexp.Regexp
 
-	input = az0(input)
+		input = az0(input)
 
-	re = regexp.MustCompile("[^\\w]")
-	input = re.ReplaceAllString(input, "")
+		re = regexp.MustCompile("[^\\w]")
+		input = re.ReplaceAllString(input, "")
 
-	return input
-}
+		return input
+	}
 
-func az2(input string) string {
-	var re *regexp.Regexp
+	az2 := func(input string) string {
+		var re *regexp.Regexp
 
-	input = az0(input)
+		input = az0(input)
 
-	re = regexp.MustCompile("\\(.+?\\)") // (.*)
-	input = re.ReplaceAllString(input, "")
+		re = regexp.MustCompile("\\(.+?\\)") // (.*)
+		input = re.ReplaceAllString(input, "")
 
-	re = regexp.MustCompile("[^\\w]")
-	input = re.ReplaceAllString(input, "")
+		re = regexp.MustCompile("[^\\w]")
+		input = re.ReplaceAllString(input, "")
 
-	return input
-}
+		return input
+	}
 
-func BuildFileNameForTrack(track Track) []string {
+	track := *az.track
 	artist := az2(track.Artist)
 	u1 := az1(track.Name)
 	u2 := az2(track.Name)
@@ -64,10 +65,10 @@ func BuildFileNameForTrack(track Track) []string {
 	return ret
 }
 
-func GetLyricsForTrack(track Track) []byte {
+func (az AZLyrics) GetLyrics() []byte {
 	var ret []byte
 
-	for _, lyricsURL := range BuildFileNameForTrack(track) {
+	for _, lyricsURL := range az.BuildFileName() {
 		songPage, err := goquery.NewDocument(AZLYRICS + lyricsURL + ".html")
 		if err != nil {
 			continue

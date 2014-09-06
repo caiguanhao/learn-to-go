@@ -42,19 +42,6 @@ var (
 	lyricsCacheDir string
 )
 
-type Track struct {
-	Name   string
-	Artist string
-}
-
-func (trackA Track) Equal(trackB Track) bool {
-	return trackA.Name == trackB.Name && trackA.Artist == trackB.Artist
-}
-
-func (trackA Track) NotEqual(trackB Track) bool {
-	return !trackA.Equal(trackB)
-}
-
 func getCurrentTrack() bool {
 	var output bytes.Buffer
 	var failed bool
@@ -84,10 +71,7 @@ func getCurrentTrack() bool {
 
 	info := strings.Split(out, "\n")
 
-	newTrack := &Track{
-		Name:   info[0],
-		Artist: info[1],
-	}
+	newTrack := NewTrack(info[0], info[1])
 
 	if currentTrack == nil || (*currentTrack).NotEqual(*newTrack) {
 		currentTrack = newTrack
@@ -158,14 +142,14 @@ func findLyrics() {
 	var err error
 	var needToGetLyrics bool = true
 
-	filename = path.Join(lyricsCacheDir, BuildFileNameForTrack(*currentTrack)[0])
+	filename = path.Join(lyricsCacheDir, (*currentTrack).AZLyrics.BuildFileName()[0])
 	lyrics, err = ioutil.ReadFile(filename)
 	if err == nil {
 		needToGetLyrics = false
 	}
 
 	if needToGetLyrics {
-		lyrics = GetLyricsForTrack(*currentTrack)
+		lyrics = (*currentTrack).AZLyrics.GetLyrics()
 
 		if filename != "" {
 			err = os.MkdirAll(path.Dir(filename), 0755)
