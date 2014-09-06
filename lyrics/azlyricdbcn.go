@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"code.google.com/p/go.text/encoding/simplifiedchinese"
 	"code.google.com/p/go.text/transform"
+	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"io/ioutil"
 	"net/http"
@@ -101,6 +102,10 @@ func (az AZLyricDBCN) GetLyrics() []byte {
 		return false
 	}
 
+	con := func(input string) string {
+		return strings.TrimFunc(az.Convert(true, input), IsSpace)
+	}
+
 	var ret []byte
 
 	for _, result := range *az.Search() {
@@ -109,15 +114,20 @@ func (az AZLyricDBCN) GetLyrics() []byte {
 		if err != nil {
 			continue
 		}
+
+		info := strings.Split(con(songPage.Find("#dl > h1").First().Text()), "歌词 - ")
+		song := info[0]
+		artist := info[1]
+
 		var lyrics string
 		songPage.Find("#lrc > li").Each(func(i int, line *goquery.Selection) {
-			lyrics += strings.TrimFunc(az.Convert(true, line.Text()), IsSpace) + "\n"
+			lyrics += con(line.Text()) + "\n"
 		})
 		lyrics = strings.TrimSpace(lyrics)
 		if len(lyrics) == 0 {
 			continue
 		}
-		ret = []byte(lyrics)
+		ret = []byte(fmt.Sprintf("%s by %s\n\n%s", song, artist, lyrics))
 		return ret
 	}
 
