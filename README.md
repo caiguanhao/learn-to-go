@@ -9,7 +9,7 @@ Make sure you have installed `go`.
 Get weather forecast information.
 
 ```
-go get -u github.com/caiguanhao/learn-to-go/src/weather
+go get -u -v github.com/caiguanhao/learn-to-go/weather
 weather of Hong Kong
 ```
 
@@ -18,7 +18,7 @@ weather of Hong Kong
 Get lyrics of current playing song for your iTunes.
 
 ```
-go get -u github.com/caiguanhao/learn-to-go/src/lyrics
+go get -u -v github.com/caiguanhao/learn-to-go/lyrics
 lyrics
 ```
 
@@ -38,7 +38,7 @@ You need to generate new token (in Settings > Applications), and select scopes:
 Copy the token as use it for option `--token`. To save the token, use `--save`.
 
 ```
-go get -u github.com/caiguanhao/learn-to-go/src/github-notify
+go get -u -v github.com/caiguanhao/learn-to-go/github-notify
 github-notify --token <YOUR-TOKEN-HERE> --save
 ```
 
