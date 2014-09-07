@@ -17,14 +17,16 @@ import (
 const (
 	USAGE = `Usage: %s [OPTION] [of SONG NAME [by ARTIST]]
 
-  -h, --help         Show this content and exit
-  -P, --no-pager     Don't pipe output into a pager
-  -C, --no-cache     Don't read/write lyrics from/to cache
+  -h, --help           Show this content and exit
 
-  -l, --lolcat       Pipe to lolcat before pager
-  -p, --spread <f>   Rainbow spread (default: 3.0)
-  -F, --freq   <f>   Rainbow frequency (default: 0.1)
-  -S, --seed   <i>   Rainbow seed, 0 = random (default: 0)
+  -P, --no-pager       Don't pipe output into a pager
+  -C, --no-cache       Don't read/write lyrics from/to cache
+  -A, --azlyrics-only  Use AZLyrics only, don't use other providers
+
+  -l, --lolcat         Pipe to lolcat before pager
+  -p, --spread <f>     Rainbow spread (default: 3.0)
+  -F, --freq   <f>     Rainbow frequency (default: 0.1)
+  -S, --seed   <i>     Rainbow seed, 0 = random (default: 0)
 `
 )
 
@@ -42,6 +44,7 @@ type Options struct {
 	Pager           bool
 	NoCache         bool
 	Cache           bool
+	AZLyricsOnly    bool
 	Lolcat          bool
 	LolcatSpread    float64
 	LolcatFrequency float64
@@ -85,6 +88,8 @@ func init() {
 	flag.BoolVar(&options.NoPager, "P", false, "")
 	flag.BoolVar(&options.NoCache, "no-cache", false, "")
 	flag.BoolVar(&options.NoCache, "C", false, "")
+	flag.BoolVar(&options.AZLyricsOnly, "azlyrics-only", false, "")
+	flag.BoolVar(&options.AZLyricsOnly, "A", false, "")
 	flag.BoolVar(&options.Lolcat, "lolcat", false, "")
 	flag.BoolVar(&options.Lolcat, "l", false, "")
 	flag.Float64Var(&options.LolcatSpread, "spread", 3.0, "")
@@ -155,10 +160,13 @@ func findLyrics(lyricsCacheDir *string) {
 		lyrics, err = ioutil.ReadFile(filename)
 	}
 	if err != nil || len(lyrics) == 0 {
-		for _, provider := range []Provider{
-			(*currentTrack).AZLyrics,
-			(*currentTrack).AZLyricDBCN,
-		} {
+		providers := []Provider{(*currentTrack).AZLyrics}
+
+		if !options.AZLyricsOnly {
+			providers = append(providers, (*currentTrack).AZLyricDBCN)
+		}
+
+		for _, provider := range providers {
 			lyrics = provider.GetLyrics()
 			if len(lyrics) > 0 {
 				break
