@@ -11,7 +11,9 @@ import (
 	"os/user"
 	"path"
 	"strings"
+	"syscall"
 	"time"
+	"unsafe"
 )
 
 const (
@@ -22,6 +24,9 @@ const (
   -P, --no-pager       Don't pipe output into a pager
   -C, --no-cache       Don't read/write lyrics from/to cache
   -A, --azlyrics-only  Use AZLyrics only, don't use other providers
+
+  -b, --center-body    Center the text body
+  -c, --center-text    Center all text
 
   -l, --lolcat         Pipe to lolcat before pager
   -p, --spread <f>     Rainbow spread (default: 3.0)
@@ -45,15 +50,23 @@ type Options struct {
 	NoCache         bool
 	Cache           bool
 	AZLyricsOnly    bool
+	CenterBody      bool
+	CenterText      bool
 	Lolcat          bool
 	LolcatSpread    float64
 	LolcatFrequency float64
 	LolcatSeed      int64
 }
 
+type Terminal struct {
+	width  int
+	height int
+}
+
 var (
-	options Options
-	pager   Pager
+	options  Options
+	pager    Pager
+	terminal Terminal
 
 	currentTrack *Track
 )
@@ -74,22 +87,31 @@ func getCurrentTrack() bool {
 }
 
 func errorln(a ...interface{}) {
+	var target io.Writer
+
 	if pager.Writer == nil {
-		fmt.Fprintf(os.Stderr, "Error: ")
-		fmt.Fprintln(os.Stderr, a...)
+		target = os.Stdout
 	} else {
-		fmt.Fprintf(pager.Writer, "Error: ")
-		fmt.Fprintln(pager.Writer, a...)
+		target = pager.Writer
 	}
+
+	fmt.Fprintf(target, "Error: ")
+	fmt.Fprintln(target, a...)
 }
 
 func init() {
+	terminal.width, terminal.height, _ = getTerminalSize()
+
 	flag.BoolVar(&options.NoPager, "no-pager", false, "")
 	flag.BoolVar(&options.NoPager, "P", false, "")
 	flag.BoolVar(&options.NoCache, "no-cache", false, "")
 	flag.BoolVar(&options.NoCache, "C", false, "")
 	flag.BoolVar(&options.AZLyricsOnly, "azlyrics-only", false, "")
 	flag.BoolVar(&options.AZLyricsOnly, "A", false, "")
+	flag.BoolVar(&options.CenterBody, "center-body", false, "")
+	flag.BoolVar(&options.CenterBody, "b", false, "")
+	flag.BoolVar(&options.CenterText, "center-text", false, "")
+	flag.BoolVar(&options.CenterText, "c", false, "")
 	flag.BoolVar(&options.Lolcat, "lolcat", false, "")
 	flag.BoolVar(&options.Lolcat, "l", false, "")
 	flag.Float64Var(&options.LolcatSpread, "spread", 3.0, "")
@@ -149,6 +171,48 @@ func trapCtrlC() {
 	}()
 }
 
+func outputLyrics(lyrics []byte) {
+	var target io.Writer
+
+	if pager.Writer == nil {
+		target = os.Stdout
+	} else {
+		target = pager.Writer
+	}
+
+	if options.CenterText {
+		lines := strings.Split(string(lyrics), "\n")
+		for _, line := range lines {
+			offset := (terminal.width - len(line)) / 2
+			if offset > 0 {
+				fmt.Fprintf(target, "%*s%s\n", offset, " ", line)
+			} else {
+				fmt.Fprintf(target, "%s\n", line)
+			}
+		}
+		return
+	}
+
+	if options.CenterBody {
+		lines := strings.Split(string(lyrics), "\n")
+		maxwidth := 0
+		for _, line := range lines {
+			if len(line) > maxwidth {
+				maxwidth = len(line)
+			}
+		}
+		offset := (terminal.width - maxwidth) / 2
+		if offset > 0 {
+			for _, line := range lines {
+				fmt.Fprintf(target, "%*s%s\n", offset, " ", line)
+			}
+			return
+		}
+	}
+
+	fmt.Fprintf(target, "%s\n", lyrics)
+}
+
 func findLyrics(lyricsCacheDir *string) {
 	var filename string
 	var lyrics []byte
@@ -182,19 +246,28 @@ func findLyrics(lyricsCacheDir *string) {
 	}
 
 	if len(lyrics) > 0 {
-		if pager.Writer == nil {
-			fmt.Fprintf(os.Stdout, "%s\n", lyrics)
-		} else {
-			fmt.Fprintf(pager.Writer, "%s\n", lyrics)
-		}
+		outputLyrics(lyrics)
 	} else {
 		errorln(fmt.Sprintf("No lyrics found for %s - %s.",
 			(*currentTrack).Name, (*currentTrack).Artist))
 	}
 }
 
+// ssh/terminal/util.go GetSize()
+func getTerminalSize() (width, height int, err error) {
+	var dimensions [4]uint16
+	if _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(syscall.Stdin),
+		uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&dimensions)),
+		0, 0, 0); err != 0 {
+		return -1, -1, err
+	}
+	return int(dimensions[1]), int(dimensions[0]), nil
+}
+
 func runPager() {
 	for {
+		terminal.width, terminal.height, _ = getTerminalSize()
+
 		pager.Reader, pager.Writer = io.Pipe()
 		pager.Cmd = exec.Command("less")
 
