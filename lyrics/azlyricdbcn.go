@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -53,8 +54,22 @@ func (az AZLyricDBCN) Search() *[]AZLyricDBCNResult {
 
 	results := &[]AZLyricDBCNResult{}
 
+	var re *regexp.Regexp
+
 	name := az.track.Name
+
+	re = regexp.MustCompile("\\(.+?\\)") // (.*)
+	name = strings.TrimSpace(re.ReplaceAllString(name, ""))
+	name = Trad2SimpConvert(name)
+
 	artist := az.track.Artist
+
+	re = regexp.MustCompile("\\(.+?\\)") // (.*)
+	artist = re.ReplaceAllString(artist, "")
+	re = regexp.MustCompile("/.*")
+	artist = strings.TrimSpace(re.ReplaceAllString(artist, ""))
+	artist = Trad2SimpConvert(artist)
+
 	alias := ArtistAliases[artist]
 	if alias != "" {
 		artist = alias

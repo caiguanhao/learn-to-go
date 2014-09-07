@@ -54,9 +54,16 @@ func (az AZLyrics) BuildFileName() ([]string, bool, bool) {
 	}
 
 	az3 := func(input string) string {
-		re := regexp.MustCompile("&.*$")
+		var re *regexp.Regexp
+
+		re = regexp.MustCompile("/.*")
 		input = re.ReplaceAllString(input, "")
+
+		re = regexp.MustCompile("&.*$")
+		input = re.ReplaceAllString(input, "")
+
 		input = az2(input)
+
 		return input
 	}
 
