@@ -27,6 +27,7 @@ const (
 
   -b, --center-body    Center the text body
   -c, --center-text    Center all text
+  -r, --right-align    Right align text
 
   -l, --lolcat         Pipe to lolcat before pager
   -p, --spread <f>     Rainbow spread (default: 3.0)
@@ -52,6 +53,7 @@ type Options struct {
 	AZLyricsOnly    bool
 	CenterBody      bool
 	CenterText      bool
+	RightAlignText  bool
 	Lolcat          bool
 	LolcatSpread    float64
 	LolcatFrequency float64
@@ -112,6 +114,8 @@ func init() {
 	flag.BoolVar(&options.CenterBody, "b", false, "")
 	flag.BoolVar(&options.CenterText, "center-text", false, "")
 	flag.BoolVar(&options.CenterText, "c", false, "")
+	flag.BoolVar(&options.RightAlignText, "right-align", false, "")
+	flag.BoolVar(&options.RightAlignText, "r", false, "")
 	flag.BoolVar(&options.Lolcat, "lolcat", false, "")
 	flag.BoolVar(&options.Lolcat, "l", false, "")
 	flag.Float64Var(&options.LolcatSpread, "spread", 3.0, "")
@@ -178,6 +182,19 @@ func outputLyrics(lyrics []byte) {
 		target = os.Stdout
 	} else {
 		target = pager.Writer
+	}
+
+	if options.RightAlignText {
+		lines := strings.Split(string(lyrics), "\n")
+		for _, line := range lines {
+			offset := terminal.width - len(line)
+			if offset > 0 {
+				fmt.Fprintf(target, "%*s%s\n", offset, " ", line)
+			} else {
+				fmt.Fprintf(target, "%s\n", line)
+			}
+		}
+		return
 	}
 
 	if options.CenterText {
