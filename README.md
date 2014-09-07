@@ -16,6 +16,7 @@ weather of Hong Kong
 ## lyrics
 
 Get lyrics of current playing song for your iTunes.
+Supports English (azlyrics.com) and Chinese songs (cn.azlyricdb.com).
 
 ```
 go get -u -v github.com/caiguanhao/learn-to-go/lyrics
@@ -26,6 +27,12 @@ Or search for lyrics:
 
 ```
 lyrics --no-pager of Birthday by Katy Perry
+```
+
+If you have installed `lolcat`, you can view the lyrics in rainbow colors:
+
+```
+lyrics -l
 ```
 
 ## github-notify
