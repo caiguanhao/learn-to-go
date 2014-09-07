@@ -20,6 +20,11 @@ const (
   -h, --help         Show this content and exit
   -P, --no-pager     Don't pipe output into a pager
   -C, --no-cache     Don't read/write lyrics from/to cache
+
+  -l, --lolcat       Pipe to lolcat before pager
+  -p, --spread <f>   Rainbow spread (default: 3.0)
+  -F, --freq   <f>   Rainbow frequency (default: 0.1)
+  -S, --seed   <i>   Rainbow seed, 0 = random (default: 0)
 `
 )
 
@@ -37,6 +42,10 @@ type Options struct {
 	Pager           bool
 	NoCache         bool
 	Cache           bool
+	Lolcat          bool
+	LolcatSpread    float64
+	LolcatFrequency float64
+	LolcatSeed      int64
 }
 
 var (
@@ -76,6 +85,14 @@ func init() {
 	flag.BoolVar(&options.NoPager, "P", false, "")
 	flag.BoolVar(&options.NoCache, "no-cache", false, "")
 	flag.BoolVar(&options.NoCache, "C", false, "")
+	flag.BoolVar(&options.Lolcat, "lolcat", false, "")
+	flag.BoolVar(&options.Lolcat, "l", false, "")
+	flag.Float64Var(&options.LolcatSpread, "spread", 3.0, "")
+	flag.Float64Var(&options.LolcatSpread, "p", 3.0, "")
+	flag.Float64Var(&options.LolcatFrequency, "freq", 0.1, "")
+	flag.Float64Var(&options.LolcatFrequency, "F", 0.1, "")
+	flag.Int64Var(&options.LolcatSeed, "seed", 0, "")
+	flag.Int64Var(&options.LolcatSeed, "S", 0, "")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, USAGE, path.Base(os.Args[0]))
 	}
@@ -172,11 +189,40 @@ func runPager() {
 	for {
 		pager.Reader, pager.Writer = io.Pipe()
 		pager.Cmd = exec.Command("less")
-		pager.Cmd.Stdin = pager.Reader
+
+		var lolcat *exec.Cmd
+		if options.Lolcat {
+			lolcat = exec.Command(
+				"lolcat",
+				"--force",
+				"--spread", fmt.Sprintf("%0.2f", options.LolcatSpread),
+				"--freq", fmt.Sprintf("%0.2f", options.LolcatFrequency),
+				"--seed", fmt.Sprintf("%d", options.LolcatSeed),
+			)
+			lolcat.Stdin = pager.Reader
+			pager.Cmd.Stdin, _ = lolcat.StdoutPipe()
+		} else {
+			pager.Cmd.Stdin = pager.Reader
+		}
+
 		pager.Cmd.Stdout = os.Stdout
 		pager.Cmd.Stderr = os.Stderr
 		pager.Running = true
-		pager.Cmd.Run()
+		pager.Cmd.Start()
+
+		if options.Lolcat {
+			err := lolcat.Run()
+			if err != nil {
+				pager.Cmd.Process.Kill()
+				pager.Writer = nil
+				errorln("Can't execute lolcat.")
+				errorln("You can install it via `gem install -V lolcat`.")
+				os.Exit(1)
+			}
+		}
+
+		pager.Cmd.Wait()
+
 		if pager.Cmd.ProcessState.Success() {
 			break
 		}
