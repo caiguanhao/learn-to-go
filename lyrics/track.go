@@ -62,14 +62,6 @@ func NewTrack(Name, Artist string) *Track {
 	return newTrack
 }
 
-func (trackA Track) Equal(trackB Track) bool {
-	return trackA.Name == trackB.Name && trackA.Artist == trackB.Artist
-}
-
-func (trackA Track) NotEqual(trackB Track) bool {
-	return !trackA.Equal(trackB)
-}
-
 func (iTunes ITunes) GetCurrentTrack() (bool, error) {
 	var output bytes.Buffer
 	cmd := exec.Command("osascript")
@@ -85,10 +77,15 @@ func (iTunes ITunes) GetCurrentTrack() (bool, error) {
 		return false, errors.New("empty content")
 	}
 	info := strings.Split(out, "\n")
+	if len(info) != 2 {
+		return false, errors.New("invalid data")
+	}
+	name := strings.TrimSpace(info[0])
+	artist := strings.TrimSpace(info[1])
 	track := iTunes.track
-	if track.Name != info[0] || track.Artist != info[1] {
-		track.Name = info[0]
-		track.Artist = info[1]
+	if track.Name != name || track.Artist != artist {
+		track.Name = name
+		track.Artist = artist
 		return true, nil
 	}
 	return false, nil

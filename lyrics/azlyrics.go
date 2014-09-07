@@ -20,7 +20,7 @@ func (az AZLyrics) BuildFileName() ([]string, bool, bool) {
 		input = strings.Replace(input, "p!nk", "pink", -1)
 
 		re = regexp.MustCompile("(?i)f[uc*]{2}k") // fuck
-		input = re.ReplaceAllString(input, "")
+		input = re.ReplaceAllString(input, "fuck")
 
 		re = regexp.MustCompile("\\[.+?\\]") // [.*]
 		input = re.ReplaceAllString(input, "")
@@ -53,6 +53,13 @@ func (az AZLyrics) BuildFileName() ([]string, bool, bool) {
 		return input
 	}
 
+	az3 := func(input string) string {
+		re := regexp.MustCompile("&.*$")
+		input = re.ReplaceAllString(input, "")
+		input = az2(input)
+		return input
+	}
+
 	base64enc := func(input string) string {
 		return base64.StdEncoding.EncodeToString([]byte(input))
 	}
@@ -66,7 +73,7 @@ func (az AZLyrics) BuildFileName() ([]string, bool, bool) {
 		cacheable = false
 		validForAZLyrics = false
 	} else {
-		artist = az2(track.Artist)
+		artist = az3(track.Artist)
 	}
 	if len(track.Name) == 0 {
 		name = "Unknown"
