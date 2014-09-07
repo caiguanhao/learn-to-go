@@ -23,36 +23,37 @@ const (
 `
 )
 
+type Pager struct {
+	Cmd        *exec.Cmd
+	Reader     *io.PipeReader
+	Writer     *io.PipeWriter
+	Running    bool
+	FailedOnce bool
+}
+
+type Options struct {
+	HasStartupQuery bool
+	NoPager         bool
+	Pager           bool
+	NoCache         bool
+	Cache           bool
+}
+
 var (
-	cmd    *exec.Cmd
-	reader *io.PipeReader
-	writer *io.PipeWriter
-
-	hasStartupQuery bool
-
-	noPager        bool
-	pager          bool
-	isPagerRunning bool
-
-	noCache bool
-	cache   bool
+	options Options
+	pager   Pager
 
 	currentTrack *Track
-
-	failedOnce bool
-
-	userHomeDir    string
-	lyricsCacheDir string
 )
 
 func getCurrentTrack() bool {
 	changed, err := currentTrack.ITunes.GetCurrentTrack()
 
 	if err != nil {
-		if !failedOnce {
+		if !pager.FailedOnce {
 			errorln("Couldn't get information from iTunes.")
 			errorln("Are you sure you have opened iTunes and it is playing some music?")
-			failedOnce = true
+			pager.FailedOnce = true
 		}
 		return false
 	}
@@ -61,24 +62,20 @@ func getCurrentTrack() bool {
 }
 
 func errorln(a ...interface{}) {
-	if writer == nil {
+	if pager.Writer == nil {
 		fmt.Fprintf(os.Stderr, "Error: ")
 		fmt.Fprintln(os.Stderr, a...)
 	} else {
-		fmt.Fprintf(writer, "Error: ")
-		fmt.Fprintln(writer, a...)
+		fmt.Fprintf(pager.Writer, "Error: ")
+		fmt.Fprintln(pager.Writer, a...)
 	}
 }
 
 func init() {
-	currentUser, _ := user.Current()
-	userHomeDir = currentUser.HomeDir
-	lyricsCacheDir = path.Join(userHomeDir, ".lyrics")
-
-	flag.BoolVar(&noPager, "no-pager", false, "")
-	flag.BoolVar(&noPager, "P", false, "")
-	flag.BoolVar(&noCache, "no-cache", false, "")
-	flag.BoolVar(&noCache, "C", false, "")
+	flag.BoolVar(&options.NoPager, "no-pager", false, "")
+	flag.BoolVar(&options.NoPager, "P", false, "")
+	flag.BoolVar(&options.NoCache, "no-cache", false, "")
+	flag.BoolVar(&options.NoCache, "C", false, "")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, USAGE, path.Base(os.Args[0]))
 	}
@@ -110,10 +107,10 @@ func init() {
 			os.Exit(1)
 		}
 		currentTrack = NewTrack(strings.Join(name, " "), strings.Join(artist, " "))
-		hasStartupQuery = true
+		options.HasStartupQuery = true
 	}
-	pager = !noPager
-	cache = !noCache
+	options.Pager = !options.NoPager
+	options.Cache = !options.NoCache
 
 	if currentTrack == nil {
 		currentTrack = NewTrack("", "")
@@ -130,14 +127,14 @@ func trapCtrlC() {
 	}()
 }
 
-func findLyrics() {
+func findLyrics(lyricsCacheDir *string) {
 	var filename string
 	var lyrics []byte
 	var err error
 
 	fn, _, cacheable := (*currentTrack).AZLyrics.BuildFileName()
-	filename = path.Join(lyricsCacheDir, fn[0])
-	if cache && cacheable {
+	filename = path.Join(*lyricsCacheDir, fn[0])
+	if options.Cache && cacheable {
 		lyrics, err = ioutil.ReadFile(filename)
 	}
 	if err != nil || len(lyrics) == 0 {
@@ -151,7 +148,7 @@ func findLyrics() {
 			}
 		}
 
-		if cache && cacheable && len(lyrics) > 0 && filename != "" {
+		if options.Cache && cacheable && len(lyrics) > 0 && filename != "" {
 			err = os.MkdirAll(path.Dir(filename), 0755)
 			if err == nil {
 				ioutil.WriteFile(filename, lyrics, 0644)
@@ -160,10 +157,10 @@ func findLyrics() {
 	}
 
 	if len(lyrics) > 0 {
-		if writer == nil {
+		if pager.Writer == nil {
 			fmt.Fprintf(os.Stdout, "%s\n", lyrics)
 		} else {
-			fmt.Fprintf(writer, "%s\n", lyrics)
+			fmt.Fprintf(pager.Writer, "%s\n", lyrics)
 		}
 	} else {
 		errorln(fmt.Sprintf("No lyrics found for %s - %s.",
@@ -173,14 +170,14 @@ func findLyrics() {
 
 func runPager() {
 	for {
-		reader, writer = io.Pipe()
-		cmd = exec.Command("less")
-		cmd.Stdin = reader
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		isPagerRunning = true
-		cmd.Run()
-		if cmd.ProcessState.Success() {
+		pager.Reader, pager.Writer = io.Pipe()
+		pager.Cmd = exec.Command("less")
+		pager.Cmd.Stdin = pager.Reader
+		pager.Cmd.Stdout = os.Stdout
+		pager.Cmd.Stderr = os.Stderr
+		pager.Running = true
+		pager.Cmd.Run()
+		if pager.Cmd.ProcessState.Success() {
 			break
 		}
 	}
@@ -188,29 +185,37 @@ func runPager() {
 
 func main() {
 
-	if pager {
+	currentUser, err := user.Current()
+	if err != nil {
+		errorln("Unable to get current user.")
+		os.Exit(1)
+	}
+	userHomeDir := currentUser.HomeDir
+	lyricsCacheDir := path.Join(userHomeDir, ".lyrics")
+
+	if options.Pager {
 
 		var started bool = false
 
 		go func() {
 			for {
-				if hasStartupQuery || getCurrentTrack() {
+				if options.HasStartupQuery || getCurrentTrack() {
 					if started {
-						cmd.Process.Kill()
-						isPagerRunning = false
+						pager.Cmd.Process.Kill()
+						pager.Running = false
 					}
 
-					for !isPagerRunning {
+					for !pager.Running {
 						time.Sleep(100 * time.Millisecond)
 					}
 
-					findLyrics()
+					findLyrics(&lyricsCacheDir)
 
 					started = true
-					writer.Close()
+					pager.Writer.Close()
 				}
 
-				if hasStartupQuery {
+				if options.HasStartupQuery {
 					break
 				}
 
@@ -224,8 +229,8 @@ func main() {
 
 	} else {
 
-		if hasStartupQuery || getCurrentTrack() {
-			findLyrics()
+		if options.HasStartupQuery || getCurrentTrack() {
+			findLyrics(&lyricsCacheDir)
 		}
 
 	}
