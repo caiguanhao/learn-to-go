@@ -14,6 +14,15 @@ import (
 	"time"
 )
 
+const (
+	USAGE = `Usage: %s [OPTION] [of SONG NAME [by ARTIST]]
+
+  -h, --help         Show this content and exit
+  -P, --no-pager     Don't pipe output into a pager
+  -C, --no-cache     Don't read/write lyrics from/to cache
+`
+)
+
 var (
 	cmd    *exec.Cmd
 	reader *io.PipeReader
@@ -24,6 +33,9 @@ var (
 	noPager        bool
 	pager          bool
 	isPagerRunning bool
+
+	noCache bool
+	cache   bool
 
 	currentTrack *Track
 
@@ -63,19 +75,12 @@ func init() {
 	userHomeDir = currentUser.HomeDir
 	lyricsCacheDir = path.Join(userHomeDir, ".lyrics")
 
-	flag.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager")
+	flag.BoolVar(&noPager, "no-pager", false, "")
+	flag.BoolVar(&noPager, "P", false, "")
+	flag.BoolVar(&noCache, "no-cache", false, "")
+	flag.BoolVar(&noCache, "C", false, "")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION] [of SONG NAME [by ARTIST]]\n\n",
-			path.Base(os.Args[0]))
-		flag.VisitAll(func(flag *flag.Flag) {
-			switch flag.DefValue {
-			case "true", "false", "":
-				fmt.Fprintf(os.Stderr, "  --%s  %s\n", flag.Name, flag.Usage)
-			default:
-				fmt.Fprintf(os.Stderr, "  --%s  %s, default is %s\n",
-					flag.Name, flag.Usage, flag.DefValue)
-			}
-		})
+		fmt.Fprintf(os.Stderr, USAGE, path.Base(os.Args[0]))
 	}
 	flag.Parse()
 	rest := flag.NArg()
@@ -108,6 +113,7 @@ func init() {
 		hasStartupQuery = true
 	}
 	pager = !noPager
+	cache = !noCache
 
 	if currentTrack == nil {
 		currentTrack = NewTrack("", "")
@@ -131,7 +137,7 @@ func findLyrics() {
 
 	fn, _, cacheable := (*currentTrack).AZLyrics.BuildFileName()
 	filename = path.Join(lyricsCacheDir, fn[0])
-	if cacheable {
+	if cache && cacheable {
 		lyrics, err = ioutil.ReadFile(filename)
 	}
 	if err != nil || len(lyrics) == 0 {
@@ -145,7 +151,7 @@ func findLyrics() {
 			}
 		}
 
-		if cacheable && len(lyrics) > 0 && filename != "" {
+		if cache && cacheable && len(lyrics) > 0 && filename != "" {
 			err = os.MkdirAll(path.Dir(filename), 0755)
 			if err == nil {
 				ioutil.WriteFile(filename, lyrics, 0644)
