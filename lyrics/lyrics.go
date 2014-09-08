@@ -197,20 +197,7 @@ func outputLyrics(lyrics []byte) {
 		target = pager.Writer
 	}
 
-	if options.RightAlignText {
-		lines := strings.Split(string(lyrics), "\n")
-		for _, line := range lines {
-			offset := terminal.width - len(line)
-			if offset > 0 {
-				fmt.Fprintf(target, "%*s%s\n", offset, " ", line)
-			} else {
-				fmt.Fprintf(target, "%s\n", line)
-			}
-		}
-		return
-	}
-
-	if options.CenterText {
+	if options.CenterText || options.RightAlignText {
 		lines := strings.Split(string(lyrics), "\n")
 		for _, line := range lines {
 			var totalLength = utf8.RuneCountInString(line)
@@ -219,8 +206,7 @@ func outputLyrics(lyrics []byte) {
 				continue
 			}
 			var bline string
-			var length int
-			var index int
+			var length, index, offset int
 			for _, r := range line {
 				if utf8.RuneLen(r) > 1 {
 					length += 2
@@ -234,7 +220,11 @@ func outputLyrics(lyrics []byte) {
 				}
 				bline += string(r)
 				if index == totalLength-1 {
-					offset := (terminal.width - countWideChar(bline)) / 2
+					if options.RightAlignText {
+						offset = terminal.width - countWideChar(bline)
+					} else {
+						offset = (terminal.width - countWideChar(bline)) / 2
+					}
 					if offset > 0 {
 						fmt.Fprintf(target, "%*s%s\n", offset, " ", bline)
 					} else {
@@ -252,8 +242,16 @@ func outputLyrics(lyrics []byte) {
 		lines := strings.Split(string(lyrics), "\n")
 		maxwidth := 0
 		for _, line := range lines {
-			if len(line) > maxwidth {
-				maxwidth = len(line)
+			var length int
+			for _, r := range line {
+				if utf8.RuneLen(r) > 1 {
+					length += 2
+				} else {
+					length += 1
+				}
+			}
+			if length > maxwidth {
+				maxwidth = length
 			}
 		}
 		offset := (terminal.width - maxwidth) / 2
