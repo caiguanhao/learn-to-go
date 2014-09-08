@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 	"unsafe"
 )
 
@@ -175,6 +176,18 @@ func trapCtrlC() {
 	}()
 }
 
+func countWideChar(input string) int {
+	count := 0
+	for _, r := range input {
+		if utf8.RuneLen(r) > 1 {
+			count += 2
+		} else {
+			count += 1
+		}
+	}
+	return count
+}
+
 func outputLyrics(lyrics []byte) {
 	var target io.Writer
 
@@ -200,13 +213,38 @@ func outputLyrics(lyrics []byte) {
 	if options.CenterText {
 		lines := strings.Split(string(lyrics), "\n")
 		for _, line := range lines {
-			offset := (terminal.width - len(line)) / 2
-			if offset > 0 {
-				fmt.Fprintf(target, "%*s%s\n", offset, " ", line)
-			} else {
-				fmt.Fprintf(target, "%s\n", line)
+			var totalLength = utf8.RuneCountInString(line)
+			if totalLength == 0 {
+				fmt.Fprintln(target)
+				continue
+			}
+			var bline string
+			var length int
+			var index int
+			for _, r := range line {
+				if utf8.RuneLen(r) > 1 {
+					length += 2
+				} else {
+					length += 1
+				}
+				if length > terminal.width {
+					fmt.Fprintf(target, "%s\n", bline)
+					bline = ""
+					length = 0
+				}
+				bline += string(r)
+				if index == totalLength-1 {
+					offset := (terminal.width - countWideChar(bline)) / 2
+					if offset > 0 {
+						fmt.Fprintf(target, "%*s%s\n", offset, " ", bline)
+					} else {
+						fmt.Fprintf(target, "%s\n", bline)
+					}
+				}
+				index++
 			}
 		}
+		lines = nil
 		return
 	}
 
