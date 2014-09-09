@@ -109,7 +109,7 @@ func (lm LyricsMania) GetLyrics() []byte {
 		if len(song) < 7 {
 			continue
 		}
-		song = song[0 : len(song)-6] // len(" lyrics") = 6
+		song = song[0 : len(song)-7] // len(" lyrics") = 6
 		artist := strings.TrimSpace(songPage.Find(".lyrics-nav h3").First().Text())
 		body := songPage.Find(".lyrics-body").First()
 		body.Get(0).RemoveChild(body.Find("#video-musictory").Get(0))
