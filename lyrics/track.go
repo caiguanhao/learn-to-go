@@ -26,6 +26,10 @@ type (
 		track *Track
 	}
 
+	LyricsMania struct {
+		track *Track
+	}
+
 	ITunes struct {
 		track *Track
 	}
@@ -36,6 +40,7 @@ type (
 		ITunes
 		AZLyrics
 		AZLyricDBCN
+		LyricsMania
 	}
 )
 
@@ -55,10 +60,12 @@ func NewTrack(Name, Artist string) *Track {
 		ITunes:      ITunes{},
 		AZLyrics:    AZLyrics{},
 		AZLyricDBCN: AZLyricDBCN{},
+		LyricsMania: LyricsMania{},
 	}
 	(*newTrack).ITunes.track = newTrack
 	(*newTrack).AZLyrics.track = newTrack
 	(*newTrack).AZLyricDBCN.track = newTrack
+	(*newTrack).LyricsMania.track = newTrack
 	return newTrack
 }
 

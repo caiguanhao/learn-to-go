@@ -24,6 +24,7 @@ const (
 
   -P, --no-pager       Don't pipe output into a pager
   -C, --no-cache       Don't read/write lyrics from/to cache
+  -L, --lyrics-mania   Use LyricsMania only, don't use other providers
   -A, --azlyrics-only  Use AZLyrics only, don't use other providers
 
   -b, --center-body    Center the text body
@@ -51,6 +52,7 @@ type Options struct {
 	Pager           bool
 	NoCache         bool
 	Cache           bool
+	LyricsManiaOnly bool
 	AZLyricsOnly    bool
 	CenterBody      bool
 	CenterText      bool
@@ -109,6 +111,8 @@ func init() {
 	flag.BoolVar(&options.NoPager, "P", false, "")
 	flag.BoolVar(&options.NoCache, "no-cache", false, "")
 	flag.BoolVar(&options.NoCache, "C", false, "")
+	flag.BoolVar(&options.LyricsManiaOnly, "lyrics-mania", false, "")
+	flag.BoolVar(&options.LyricsManiaOnly, "L", false, "")
 	flag.BoolVar(&options.AZLyricsOnly, "azlyrics-only", false, "")
 	flag.BoolVar(&options.AZLyricsOnly, "A", false, "")
 	flag.BoolVar(&options.CenterBody, "center-body", false, "")
@@ -277,10 +281,15 @@ func findLyrics(lyricsCacheDir *string) {
 		lyrics, err = ioutil.ReadFile(filename)
 	}
 	if err != nil || len(lyrics) == 0 {
-		providers := []Provider{(*currentTrack).AZLyrics}
+		providers := []Provider{(*currentTrack).LyricsMania}
 
-		if !options.AZLyricsOnly {
-			providers = append(providers, (*currentTrack).AZLyricDBCN)
+		if !options.LyricsManiaOnly {
+			if options.AZLyricsOnly {
+				providers = []Provider{(*currentTrack).AZLyrics}
+			} else {
+				providers = append(providers, (*currentTrack).AZLyrics)
+				providers = append(providers, (*currentTrack).AZLyricDBCN)
+			}
 		}
 
 		for _, provider := range providers {
