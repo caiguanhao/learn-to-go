@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"os/user"
 	"path"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -24,8 +25,12 @@ const (
 
   -P, --no-pager       Don't pipe output into a pager
   -C, --no-cache       Don't read/write lyrics from/to cache
-  -L, --lyrics-mania   Use LyricsMania only, don't use other providers
-  -A, --azlyrics-only  Use AZLyrics only, don't use other providers
+
+  -s, --providers <s>  Specify providers, default: "SM/LM/AZ/CN"
+                         - SM: SongMeanings.com
+                         - LM: LyricsMania.com
+                         - AZ: AZLyrics.com
+                         - CN: cn.AZLyricDB.com
 
   -b, --center-body    Center the text body
   -c, --center-text    Center all text
@@ -52,8 +57,7 @@ type Options struct {
 	Pager           bool
 	NoCache         bool
 	Cache           bool
-	LyricsManiaOnly bool
-	AZLyricsOnly    bool
+	Providers       []Provider
 	CenterBody      bool
 	CenterText      bool
 	RightAlignText  bool
@@ -106,15 +110,11 @@ func errorln(a ...interface{}) {
 
 func init() {
 	terminal.width, terminal.height, _ = getTerminalSize()
-
+	var providers string
 	flag.BoolVar(&options.NoPager, "no-pager", false, "")
 	flag.BoolVar(&options.NoPager, "P", false, "")
 	flag.BoolVar(&options.NoCache, "no-cache", false, "")
 	flag.BoolVar(&options.NoCache, "C", false, "")
-	flag.BoolVar(&options.LyricsManiaOnly, "lyrics-mania", false, "")
-	flag.BoolVar(&options.LyricsManiaOnly, "L", false, "")
-	flag.BoolVar(&options.AZLyricsOnly, "azlyrics-only", false, "")
-	flag.BoolVar(&options.AZLyricsOnly, "A", false, "")
 	flag.BoolVar(&options.CenterBody, "center-body", false, "")
 	flag.BoolVar(&options.CenterBody, "b", false, "")
 	flag.BoolVar(&options.CenterText, "center-text", false, "")
@@ -129,6 +129,8 @@ func init() {
 	flag.Float64Var(&options.LolcatFrequency, "F", 0.1, "")
 	flag.Int64Var(&options.LolcatSeed, "seed", 0, "")
 	flag.Int64Var(&options.LolcatSeed, "S", 0, "")
+	flag.StringVar(&providers, "providers", "SM/LM/AZ/CN", "")
+	flag.StringVar(&providers, "s", "SM/LM/AZ/CN", "")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, USAGE, path.Base(os.Args[0]))
 	}
@@ -167,6 +169,24 @@ func init() {
 
 	if currentTrack == nil {
 		currentTrack = NewTrack("", "")
+	}
+
+	prov := regexp.MustCompile("[\\w]+").FindAllString(providers, -1)
+	for _, p := range prov {
+		var provider Provider
+		switch p {
+		case "SM":
+			provider = (*currentTrack).SongMeanings
+		case "LM":
+			provider = (*currentTrack).LyricsMania
+		case "AZ":
+			provider = (*currentTrack).AZLyrics
+		case "CN":
+			provider = (*currentTrack).AZLyricDBCN
+		default:
+			continue
+		}
+		options.Providers = append(options.Providers, provider)
 	}
 }
 
@@ -281,18 +301,7 @@ func findLyrics(lyricsCacheDir *string) {
 		lyrics, err = ioutil.ReadFile(filename)
 	}
 	if err != nil || len(lyrics) == 0 {
-		providers := []Provider{(*currentTrack).SongMeanings, (*currentTrack).LyricsMania}
-
-		if !options.LyricsManiaOnly {
-			if options.AZLyricsOnly {
-				providers = []Provider{(*currentTrack).AZLyrics}
-			} else {
-				providers = append(providers, (*currentTrack).AZLyrics)
-				providers = append(providers, (*currentTrack).AZLyricDBCN)
-			}
-		}
-
-		for _, provider := range providers {
+		for _, provider := range options.Providers {
 			lyrics = provider.GetLyrics()
 			if len(lyrics) > 0 {
 				break
