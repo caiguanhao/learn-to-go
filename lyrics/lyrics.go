@@ -281,7 +281,7 @@ func findLyrics(lyricsCacheDir *string) {
 		lyrics, err = ioutil.ReadFile(filename)
 	}
 	if err != nil || len(lyrics) == 0 {
-		providers := []Provider{(*currentTrack).LyricsMania}
+		providers := []Provider{(*currentTrack).SongMeanings, (*currentTrack).LyricsMania}
 
 		if !options.LyricsManiaOnly {
 			if options.AZLyricsOnly {

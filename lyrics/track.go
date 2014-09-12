@@ -12,26 +12,20 @@ type (
 		GetLyrics() []byte
 	}
 
-	AZLyrics struct {
+	TrackPointer struct {
 		track *Track
 	}
+
+	AZLyrics     TrackPointer
+	AZLyricDBCN  TrackPointer
+	LyricsMania  TrackPointer
+	SongMeanings TrackPointer
+	ITunes       TrackPointer
 
 	AZLyricDBCNResult struct {
 		URL    string
 		Name   string
 		Artist string
-	}
-
-	AZLyricDBCN struct {
-		track *Track
-	}
-
-	LyricsMania struct {
-		track *Track
-	}
-
-	ITunes struct {
-		track *Track
 	}
 
 	Track struct {
@@ -41,6 +35,7 @@ type (
 		AZLyrics
 		AZLyricDBCN
 		LyricsMania
+		SongMeanings
 	}
 )
 
@@ -55,17 +50,19 @@ const (
 
 func NewTrack(Name, Artist string) *Track {
 	newTrack := &Track{
-		Name:        Name,
-		Artist:      Artist,
-		ITunes:      ITunes{},
-		AZLyrics:    AZLyrics{},
-		AZLyricDBCN: AZLyricDBCN{},
-		LyricsMania: LyricsMania{},
+		Name:         Name,
+		Artist:       Artist,
+		ITunes:       ITunes{},
+		AZLyrics:     AZLyrics{},
+		AZLyricDBCN:  AZLyricDBCN{},
+		LyricsMania:  LyricsMania{},
+		SongMeanings: SongMeanings{},
 	}
 	(*newTrack).ITunes.track = newTrack
 	(*newTrack).AZLyrics.track = newTrack
 	(*newTrack).AZLyricDBCN.track = newTrack
 	(*newTrack).LyricsMania.track = newTrack
+	(*newTrack).SongMeanings.track = newTrack
 	return newTrack
 }
 
