@@ -57,4 +57,10 @@ github-notify --token <YOUR-TOKEN-HERE> --save --install
 
 ## Screenshots
 
-![Screenshot](https://cloud.githubusercontent.com/assets/1284703/3951341/89923244-26d4-11e4-8a4b-2e2b23963410.png)
+weather:
+
+![weather](https://cloud.githubusercontent.com/assets/1284703/3951341/89923244-26d4-11e4-8a4b-2e2b23963410.png)
+
+lyrics:
+
+![lyrics](https://cloud.githubusercontent.com/assets/1284703/4271003/e3db2620-3cd2-11e4-95d3-924436500579.png)
