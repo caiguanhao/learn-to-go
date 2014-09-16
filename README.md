@@ -64,3 +64,7 @@ weather:
 lyrics:
 
 ![lyrics](https://cloud.githubusercontent.com/assets/1284703/4271003/e3db2620-3cd2-11e4-95d3-924436500579.png)
+
+github-notify:
+
+![github-notify](https://cloud.githubusercontent.com/assets/1284703/4285628/18be9ba4-3d89-11e4-941a-210db651dd92.png)
