@@ -1,4 +1,6 @@
-{
+package main
+
+const FAKE_DATA = `{
   "city": {
     "coord": {
       "lat": 22.85042,
@@ -189,3 +191,4 @@
   ],
   "message": 0.1849
 }
+`
