@@ -55,6 +55,31 @@ If you are on Mac OS X, you can install the app to your Dock:
 github-notify --token <YOUR-TOKEN-HERE> --save --install
 ```
 
+## webhook
+
+```
+go get -u -v github.com/caiguanhao/learn-to-go/webhook
+WEBHOOKSECRET=F5fGmWv5XYtdxeUR webhook grunt make
+```
+
+nginx configurations:
+
+```
+server {
+  ...
+  location = /webhook {
+    proxy_pass http://webhook;
+    proxy_redirect off;
+    proxy_intercept_errors on;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+}
+upstream webhook {
+  server 127.0.0.1:52142;
+}
+```
+
 ## Screenshots
 
 weather:
