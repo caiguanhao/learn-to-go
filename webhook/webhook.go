@@ -11,22 +11,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-)
-
-type (
-	Opts struct {
-		Secret  string
-		Command struct {
-			Available bool
-			Name      string
-			Args      []string
-		}
-	}
 )
 
 var (
-	Options Opts
+	Configs Conf
 )
 
 func verifySignature(message, messageMAC, key []byte) bool {
@@ -58,16 +46,24 @@ func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
 			break
 		}
 		req.Body.Close()
-		if verifySignature(body, signature, []byte(Options.Secret)) {
-			if Options.Command.Available {
+		secret, valid := Configs.Get("secret")
+		if valid && verifySignature(body, signature, []byte(secret)) {
+			command, valid := Configs.GetCommandByEvent(event)
+			if valid {
 				go func() {
-					name := Options.Command.Name
-					cmd := exec.Command(name, Options.Command.Args...)
-					args := strings.Join(Options.Command.Args, " ")
-					cmd.Start()
-					log.Printf("[%s:%p:%s] %s %s", ip, &cmd, "RUN", name, args)
-					cmd.Wait()
-					log.Printf("[%s:%p:%s] %s %s", ip, &cmd, "FIN", name, args)
+					cmd := exec.Command("bash", "-c", command)
+					err := cmd.Start()
+					if err != nil {
+						log.Printf("[%s] failed to start: %s", ip, command)
+						return
+					}
+					log.Printf("[%s:%p:RUN] %s", ip, &cmd, command)
+					err = cmd.Wait()
+					if err == nil {
+						log.Printf("[%s:%p:FIN] successful", ip, &cmd)
+					} else {
+						log.Printf("[%s:%p:ERR] exit with %s", ip, &cmd, err)
+					}
 				}()
 			} else {
 				log.Printf("[%s] authenticated, but nothing to do", ip)
@@ -83,34 +79,24 @@ func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
 }
 
 func init() {
-	flag.StringVar(&Options.Secret, "secret", "", "")
 	flag.Usage = func() {
 		n := filepath.Base(os.Args[0])
-		fmt.Printf(`Usage:   %s [--secret <secret>] <command>
+		fmt.Printf(`USAGE:       %s [CONFIG FILE]
 
-Note:    secret must be provided by either --secret option or
-         environment variable WEBHOOKSECRET
-
-Example: %s --secret "mypass" grunt make
-`, n, n)
+CONFIG FILE: If webhook.conf does not exist in the working
+             directory, you may specify the file path to
+             the config file or it will read from STDIN.
+`, n)
 	}
 	flag.Parse()
-	if Options.Secret == "" {
-		Options.Secret = os.Getenv("WEBHOOKSECRET")
-	}
-	if Options.Secret == "" {
+
+	Configs.SetFilePaths("webhook.conf")
+	Configs.Read()
+
+	secret, valid := Configs.Get("secret")
+	if !valid || secret == "" {
 		fmt.Fprintln(os.Stderr, "You must specify secret. See --help.")
 		os.Exit(1)
-	}
-	if flag.NArg() > 0 {
-		args := flag.Args()
-		Options.Command.Available = true
-		Options.Command.Name = args[0]
-		Options.Command.Args = args[1:]
-	}
-	if !Options.Command.Available {
-		fmt.Fprintln(os.Stderr,
-			"Warning: You haven't specified any command to execute.")
 	}
 }
 

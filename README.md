@@ -59,7 +59,7 @@ github-notify --token <YOUR-TOKEN-HERE> --save --install
 
 ```
 go get -u -v github.com/caiguanhao/learn-to-go/webhook
-WEBHOOKSECRET=F5fGmWv5XYtdxeUR webhook grunt make
+webhook
 ```
 
 nginx configurations:
