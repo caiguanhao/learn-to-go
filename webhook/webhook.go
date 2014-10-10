@@ -103,7 +103,31 @@ func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
 						cmd.Dir = directory
 						log.Printf("[%s:%p:DIR] %s", ip, &cmd, directory)
 					}
-					err := cmd.Start()
+					var err error
+					stdout, sovalid := Configs.GetByEvent("stdout", event)
+					if sovalid {
+						var file *os.File
+						file, err = os.OpenFile(stdout, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+						if err != nil {
+							log.Printf("[%s] failed to write stdout to: %s (%s)",
+								ip, stdout, err)
+							return
+						}
+						defer file.Close()
+						cmd.Stdout = file
+					}
+					stderr, sevalid := Configs.GetByEvent("stderr", event)
+					if sevalid {
+						var file *os.File
+						file, err = os.OpenFile(stderr, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+						if err != nil {
+							log.Printf("[%s] failed to write stderr to: %s", ip, stderr)
+							return
+						}
+						defer file.Close()
+						cmd.Stderr = file
+					}
+					err = cmd.Start()
 					if err != nil {
 						log.Printf("[%s] failed to start: %s", ip, ret)
 						return
