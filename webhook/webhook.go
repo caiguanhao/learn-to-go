@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/hmac"
 	"crypto/sha1"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -11,20 +12,63 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+)
+
+type (
+	Webhook struct {
+		Respository struct {
+			Name     string `json:"name"`
+			FullName string `json:"full_name"`
+		} `json:"repository"`
+	}
 )
 
 var (
 	Configs Conf
 )
 
-func verifySignature(message, messageMAC, key []byte) bool {
+func verify(message, messageMAC, key []byte) (bool, string) {
 	if len(message) == 0 || len(messageMAC) == 0 {
-		return false
+		return false, "empty body or signature"
 	}
+
 	mac := hmac.New(sha1.New, key)
 	mac.Write(message)
 	expectedMAC := []byte(fmt.Sprintf("%x", mac.Sum(nil)))
-	return hmac.Equal(messageMAC, expectedMAC)
+	isSignatureValid := hmac.Equal(messageMAC, expectedMAC)
+	if !isSignatureValid {
+		return false, "failed to authenticate"
+	}
+
+	return true, ""
+}
+
+func check(body []byte, event string) (bool, string) {
+	repositoryToCheck, valid := Configs.Get("repository")
+	if valid && repositoryToCheck != "" {
+		hook := &Webhook{}
+		err := json.Unmarshal(body, &hook)
+		if err == nil {
+			if strings.Contains(repositoryToCheck, "/") {
+				if hook.Respository.FullName != repositoryToCheck {
+					return false, "authenticated, but repository does not match full name"
+				}
+			} else {
+				if hook.Respository.Name != repositoryToCheck {
+					return false, "authenticated, but repository does not match name"
+				}
+			}
+		} else {
+			return false, "authenticated, but failed to unmarshal body"
+		}
+	}
+
+	command, valid := Configs.GetCommandByEvent(event)
+	if !valid {
+		return false, "authenticated, but nothing to do"
+	}
+	return true, command
 }
 
 func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
@@ -47,17 +91,18 @@ func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
 		}
 		req.Body.Close()
 		secret, valid := Configs.Get("secret")
-		if valid && verifySignature(body, signature, []byte(secret)) {
-			command, valid := Configs.GetCommandByEvent(event)
-			if valid {
+		verified, notVerifiedReason := verify(body, signature, []byte(secret))
+		if valid && verified {
+			ok, ret := check(body, event)
+			if ok {
 				go func() {
-					cmd := exec.Command("bash", "-c", command)
+					cmd := exec.Command("bash", "-c", ret)
 					err := cmd.Start()
 					if err != nil {
-						log.Printf("[%s] failed to start: %s", ip, command)
+						log.Printf("[%s] failed to start: %s", ip, ret)
 						return
 					}
-					log.Printf("[%s:%p:RUN] %s", ip, &cmd, command)
+					log.Printf("[%s:%p:RUN] %s", ip, &cmd, ret)
 					err = cmd.Wait()
 					if err == nil {
 						log.Printf("[%s:%p:FIN] successful", ip, &cmd)
@@ -65,13 +110,14 @@ func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
 						log.Printf("[%s:%p:ERR] exit with %s", ip, &cmd, err)
 					}
 				}()
+				fmt.Fprintln(res, "OK")
 			} else {
-				log.Printf("[%s] authenticated, but nothing to do", ip)
+				fmt.Fprintln(res, ret)
+				log.Printf("[%s] %s", ip, ret)
 			}
-			fmt.Fprintln(res, "OK")
 			return
 		} else {
-			log.Printf("[%s] failed to authenticate", ip)
+			log.Printf("[%s] %s", ip, notVerifiedReason)
 		}
 		break
 	}
