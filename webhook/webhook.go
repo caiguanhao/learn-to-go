@@ -12,13 +12,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 type (
 	Webhook struct {
 		Respository struct {
-			Name     string `json:"name"`
 			FullName string `json:"full_name"`
 		} `json:"repository"`
 	}
@@ -44,32 +42,64 @@ func verify(message, messageMAC, key []byte) (bool, string) {
 	return true, ""
 }
 
-func check(body []byte, event string) (bool, string) {
-	repositoryToCheck, valid := Configs.Get("repository")
-	if valid && repositoryToCheck != "" {
-		hook := &Webhook{}
-		err := json.Unmarshal(body, &hook)
-		if err == nil {
-			if strings.Contains(repositoryToCheck, "/") {
-				if hook.Respository.FullName != repositoryToCheck {
-					return false, "authenticated, but repository does not match full name"
-				}
-			} else {
-				if hook.Respository.Name != repositoryToCheck {
-					return false, "authenticated, but repository does not match name"
-				}
-			}
-		} else {
-			return false, "authenticated, but failed to unmarshal body"
+func get(body []byte, event string) (bool, string) {
+	hook := &Webhook{}
+	err := json.Unmarshal(body, &hook)
+	if err != nil {
+		return false, "authenticated, but failed to unmarshal request body"
+	}
+	repo := hook.Respository.FullName
+	return true, repo
+}
+
+func run(repo, event, ip string) {
+	command, cvalid := Configs.GetByRepoEvent("command", repo, event)
+	if !cvalid {
+		log.Printf("[%s] authenticated, but nothing to do", ip)
+		return
+	}
+	cmd := exec.Command("bash", "-c", command)
+	directory, dvalid := Configs.GetByRepoEvent("directory", repo, event)
+	if dvalid {
+		cmd.Dir = directory
+		log.Printf("[%s:%p:DIR] %s", ip, &cmd, directory)
+	}
+	var err error
+	stdout, sovalid := Configs.GetByRepoEvent("stdout", repo, event)
+	if sovalid {
+		var ofile *os.File
+		ofile, err = os.OpenFile(stdout, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+		if err != nil {
+			log.Printf("[%s] failed to write stdout to: %s (%s)",
+				ip, stdout, err)
+			return
 		}
+		defer ofile.Close()
+		cmd.Stdout = ofile
 	}
-
-	command, valid := Configs.GetByEvent("command", event)
-	if !valid {
-		return false, "authenticated, but nothing to do"
+	stderr, sevalid := Configs.GetByRepoEvent("stderr", repo, event)
+	if sevalid {
+		var efile *os.File
+		efile, err = os.OpenFile(stderr, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+		if err != nil {
+			log.Printf("[%s] failed to write stderr to: %s", ip, stderr)
+			return
+		}
+		defer efile.Close()
+		cmd.Stderr = efile
 	}
-
-	return true, command
+	err = cmd.Start()
+	if err != nil {
+		log.Printf("[%s] failed to start: %s", ip, command)
+		return
+	}
+	log.Printf("[%s:%p:RUN] %s", ip, &cmd, command)
+	err = cmd.Wait()
+	if err == nil {
+		log.Printf("[%s:%p:FIN] successful", ip, &cmd)
+	} else {
+		log.Printf("[%s:%p:ERR] exit with %s", ip, &cmd, err)
+	}
 }
 
 func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
@@ -94,52 +124,9 @@ func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
 		secret, valid := Configs.Get("secret")
 		verified, notVerifiedReason := verify(body, signature, []byte(secret))
 		if valid && verified {
-			ok, ret := check(body, event)
+			ok, ret := get(body, event)
 			if ok {
-				go func() {
-					directory, valid := Configs.GetByEvent("directory", event)
-					cmd := exec.Command("bash", "-c", ret)
-					if valid {
-						cmd.Dir = directory
-						log.Printf("[%s:%p:DIR] %s", ip, &cmd, directory)
-					}
-					var err error
-					stdout, sovalid := Configs.GetByEvent("stdout", event)
-					if sovalid {
-						var file *os.File
-						file, err = os.OpenFile(stdout, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
-						if err != nil {
-							log.Printf("[%s] failed to write stdout to: %s (%s)",
-								ip, stdout, err)
-							return
-						}
-						defer file.Close()
-						cmd.Stdout = file
-					}
-					stderr, sevalid := Configs.GetByEvent("stderr", event)
-					if sevalid {
-						var file *os.File
-						file, err = os.OpenFile(stderr, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
-						if err != nil {
-							log.Printf("[%s] failed to write stderr to: %s", ip, stderr)
-							return
-						}
-						defer file.Close()
-						cmd.Stderr = file
-					}
-					err = cmd.Start()
-					if err != nil {
-						log.Printf("[%s] failed to start: %s", ip, ret)
-						return
-					}
-					log.Printf("[%s:%p:RUN] %s", ip, &cmd, ret)
-					err = cmd.Wait()
-					if err == nil {
-						log.Printf("[%s:%p:FIN] successful", ip, &cmd)
-					} else {
-						log.Printf("[%s:%p:ERR] exit with %s", ip, &cmd, err)
-					}
-				}()
+				go run(ret, event, ip)
 				fmt.Fprintln(res, "OK")
 			} else {
 				fmt.Fprintln(res, ret)

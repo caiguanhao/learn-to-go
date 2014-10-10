@@ -68,14 +68,18 @@ func (conf *Conf) Get(key string) (string, bool) {
 	return "", false
 }
 
-func (conf *Conf) GetByEvent(getWhat, event string) (string, bool) {
-	get := false
+func (conf *Conf) GetByRepoEvent(getWhat, repo, event string) (string, bool) {
+	phase := 0
 	for _, item := range (*conf).Configs {
-		if item[0] == "event" && item[1] == event {
-			get = true
+		if phase == 0 && item[0] == "repository" && item[1] == repo {
+			phase = 1
 			continue
 		}
-		if get && item[0] == getWhat {
+		if phase == 1 && item[0] == "event" && item[1] == event {
+			phase = 2
+			continue
+		}
+		if phase == 2 && item[0] == getWhat {
 			return item[1], true
 		}
 	}
