@@ -71,9 +71,13 @@ func (conf *Conf) Get(key string) (string, bool) {
 func (conf *Conf) GetByRepoEvent(getWhat, repo, event string) (string, bool) {
 	phase := 0
 	for _, item := range (*conf).Configs {
-		if phase == 0 && item[0] == "repository" && item[1] == repo {
-			phase = 1
-			continue
+		if item[0] == "repository" && item[1] == repo {
+			if phase == 0 {
+				phase = 1
+				continue
+			} else {
+				break
+			}
 		}
 		if phase == 1 && item[0] == "event" && item[1] == event {
 			phase = 2
