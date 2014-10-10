@@ -68,14 +68,14 @@ func (conf *Conf) Get(key string) (string, bool) {
 	return "", false
 }
 
-func (conf *Conf) GetCommandByEvent(event string) (string, bool) {
-	getCommand := false
+func (conf *Conf) GetByEvent(getWhat, event string) (string, bool) {
+	get := false
 	for _, item := range (*conf).Configs {
 		if item[0] == "event" && item[1] == event {
-			getCommand = true
+			get = true
 			continue
 		}
-		if getCommand && item[0] == "command" {
+		if get && item[0] == getWhat {
 			return item[1], true
 		}
 	}

@@ -64,10 +64,11 @@ func check(body []byte, event string) (bool, string) {
 		}
 	}
 
-	command, valid := Configs.GetCommandByEvent(event)
+	command, valid := Configs.GetByEvent("command", event)
 	if !valid {
 		return false, "authenticated, but nothing to do"
 	}
+
 	return true, command
 }
 
@@ -96,7 +97,12 @@ func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
 			ok, ret := check(body, event)
 			if ok {
 				go func() {
+					directory, valid := Configs.GetByEvent("directory", event)
 					cmd := exec.Command("bash", "-c", ret)
+					if valid {
+						cmd.Dir = directory
+						log.Printf("[%s:%p:DIR] %s", ip, &cmd, directory)
+					}
 					err := cmd.Start()
 					if err != nil {
 						log.Printf("[%s] failed to start: %s", ip, ret)
