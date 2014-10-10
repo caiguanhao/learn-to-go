@@ -149,7 +149,9 @@ CONFIG FILE: If webhook.conf does not exist in the working
 
 	if !*noFileRead {
 		paths := []string{"webhook.conf"}
-		paths = append(paths, flag.Args()...)
+		for _, arg := range flag.Args() {
+			paths = append([]string{arg}, paths...)
+		}
 		Configs.SetFilePaths(paths...)
 	}
 	path, read := Configs.Read()
