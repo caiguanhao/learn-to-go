@@ -197,7 +197,11 @@ CONFIG FILE: If webhook.conf does not exist in the working
 }
 
 func main() {
-	http.HandleFunc("/webhook", handleGitHubWebhookRequest)
+	route, _ := Configs.Get("route")
+	if route == "" {
+		route = "/webhook"
+	}
+	http.HandleFunc(route, handleGitHubWebhookRequest)
 	bind, _ := Configs.Get("bind")
 	port, _ := Configs.Get("port")
 	if bind == "" {
@@ -207,7 +211,7 @@ func main() {
 		port = "52142"
 	}
 	addr := fmt.Sprintf("%s:%s", bind, port)
-	log.Printf("Listening on %s", addr)
+	log.Printf("Listening on %s, route is %s", addr, route)
 	err := http.ListenAndServe(addr, nil)
 	if err != nil {
 		log.Fatal(err)
