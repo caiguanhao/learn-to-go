@@ -79,9 +79,14 @@ func handleGitHubWebhookRequest(res http.ResponseWriter, req *http.Request) {
 }
 
 func init() {
+	noFileRead := flag.Bool("no-file-read", false, "")
 	flag.Usage = func() {
 		n := filepath.Base(os.Args[0])
-		fmt.Printf(`USAGE:       %s [CONFIG FILE]
+		fmt.Printf(`USAGE:       %s [OPTION] [CONFIG FILE]
+
+OPTION:      --no-file-read:
+               Even if config specified, don't read configs from any file.
+               This will force to use STDIN to get configs.
 
 CONFIG FILE: If webhook.conf does not exist in the working
              directory, you may specify the file path to
@@ -90,8 +95,21 @@ CONFIG FILE: If webhook.conf does not exist in the working
 	}
 	flag.Parse()
 
-	Configs.SetFilePaths("webhook.conf")
-	Configs.Read()
+	if !*noFileRead {
+		paths := []string{"webhook.conf"}
+		paths = append(paths, flag.Args()...)
+		Configs.SetFilePaths(paths...)
+	}
+	path, read := Configs.Read()
+	if read {
+		if path == "" {
+			path = "STDIN"
+		}
+		fmt.Printf("Read configs from %s.\n", path)
+	} else {
+		fmt.Println("No config file found.")
+		os.Exit(1)
+	}
 
 	secret, valid := Configs.Get("secret")
 	if !valid || secret == "" {

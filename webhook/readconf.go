@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -16,16 +18,10 @@ func (conf *Conf) SetFilePaths(paths ...string) {
 }
 
 func (conf *Conf) Read() (string, bool) {
-	(*conf).Configs = nil
-	for _, fpath := range (*conf).FilePaths {
-		file, err := os.Open(fpath)
-		defer file.Close()
-		if err != nil {
-			continue
-		}
-		scanner := bufio.NewScanner(file)
+	read := func(reader io.Reader) bool {
+		scanner := bufio.NewScanner(reader)
 		if err := scanner.Err(); err != nil {
-			continue
+			return false
 		}
 		for scanner.Scan() {
 			text := strings.TrimSpace(scanner.Text())
@@ -39,7 +35,26 @@ func (conf *Conf) Read() (string, bool) {
 			comp[1] = strings.TrimSpace(comp[1])
 			(*conf).Configs = append((*conf).Configs, comp)
 		}
-		return fpath, true
+		return true
+	}
+	(*conf).Configs = nil
+	for _, fpath := range (*conf).FilePaths {
+		fullpath, err := filepath.Abs(fpath)
+		if err != nil {
+			continue
+		}
+		file, err := os.Open(fullpath)
+		defer file.Close()
+		if err != nil {
+			continue
+		}
+		if !read(file) {
+			continue
+		}
+		return fullpath, true
+	}
+	if read(os.Stdin) {
+		return "", true
 	}
 	return "", false
 }
